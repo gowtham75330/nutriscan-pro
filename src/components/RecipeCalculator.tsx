@@ -1,0 +1,120 @@
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, X, ChefHat } from "lucide-react";
+import { nutritionDatabase } from "@/data/nutritionData";
+import { getServing } from "@/data/servingSizes";
+import { scaleNutrition, sumNutrition, healthScore } from "@/lib/nutritionUtils";
+
+interface Ingredient { key: string; grams: number; }
+
+export default function RecipeCalculator() {
+  const [items, setItems] = useState<Ingredient[]>([
+    { key: "rice", grams: 150 },
+    { key: "dal", grams: 80 },
+  ]);
+  const [pick, setPick] = useState("chicken");
+  const [grams, setGrams] = useState(100);
+
+  const totals = useMemo(() => {
+    const scaled = items.map(({ key, grams: g }) => {
+      const serving = getServing(key);
+      // For piece foods we still treat the entered "grams" as weight.
+      const factor = g / serving.grams;
+      return scaleNutrition(nutritionDatabase[key], factor, key);
+    });
+    return sumNutrition(scaled);
+  }, [items]);
+
+  const score = healthScore(totals);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <div className="glass-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <ChefHat size={20} className="text-secondary" />
+          <h3 className="font-heading font-bold text-foreground">Recipe Nutrition Calculator</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">Add every ingredient with its weight (in grams) — we'll total the nutrition for the full recipe.</p>
+
+        <div className="flex gap-2">
+          <select
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+            className="flex-1 px-2 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {Object.entries(nutritionDatabase).map(([k, v]) => (
+              <option key={k} value={k}>{v.emoji} {v.name}</option>
+            ))}
+          </select>
+          <input
+            type="number" min={1} value={grams}
+            onChange={(e) => setGrams(+e.target.value || 0)}
+            className="w-20 px-2 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={() => { if (grams > 0) setItems([...items, { key: pick, grams }]); }}
+            className="px-3 py-2 rounded-lg gradient-primary text-primary-foreground"
+            aria-label="Add ingredient"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <AnimatePresence>
+            {items.map((it, idx) => {
+              const f = nutritionDatabase[it.key];
+              return (
+                <motion.div
+                  key={`${it.key}-${idx}`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2"
+                >
+                  <span className="text-lg">{f.emoji}</span>
+                  <span className="flex-1 text-sm font-medium text-foreground">{f.name}</span>
+                  <span className="text-xs text-muted-foreground">{it.grams}g</span>
+                  <button
+                    onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                    className="text-destructive hover:opacity-70"
+                    aria-label="Remove"
+                  ><X size={14} /></button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+          {items.length === 0 && (
+            <p className="text-xs text-center text-muted-foreground py-3">No ingredients yet.</p>
+          )}
+        </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="glass-card p-5 space-y-3">
+          <h4 className="font-heading font-semibold text-foreground text-center">🍲 Recipe Total</h4>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <Stat label="Calories" value={`${totals.calories}`} unit="kcal" />
+            <Stat label="Protein" value={`${totals.protein}`} unit="g" />
+            <Stat label="Carbs" value={`${totals.carbs}`} unit="g" />
+            <Stat label="Fat" value={`${totals.fat}`} unit="g" />
+          </div>
+          <div className="text-center pt-2">
+            <p className="text-xs text-muted-foreground">Health Score</p>
+            <p className="text-3xl font-heading font-bold" style={{ color: score.color }}>{score.score}</p>
+            <p className="text-xs font-medium" style={{ color: score.color }}>{score.label}</p>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <div className="bg-background/60 rounded-lg p-2">
+      <p className="text-lg font-heading font-bold text-foreground">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{label} ({unit})</p>
+    </div>
+  );
+}
