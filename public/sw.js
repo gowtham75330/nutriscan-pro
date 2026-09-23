@@ -18,6 +18,7 @@ const CACHE_NAME = `nutriscan-cache-${SW_VERSION}`;
 /** URLs to precache on install (app shell only). */
 const PRECACHE_ASSETS = [
   '/',
+  '/?source=pwa',
   '/index.html',
   '/manifest.webmanifest',
   '/manifest.json',

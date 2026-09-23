@@ -61,11 +61,11 @@ export default function RecipeCalculator() {
         </div>
         <p className="text-xs text-muted-foreground">Add every ingredient with its weight (in grams) — we'll total the nutrition for the full recipe.</p>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full">
           <select
             value={pick}
             onChange={(e) => setPick(e.target.value)}
-            className="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 min-w-0 min-h-[44px] px-2.5 sm:px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary truncate"
           >
             {Object.entries(nutritionDatabase).map(([k, v]) => (
               <option key={k} value={k}>{v.emoji} {v.name}</option>
@@ -74,11 +74,11 @@ export default function RecipeCalculator() {
           <input
             type="number" min={1} value={grams}
             onChange={(e) => setGrams(+e.target.value || 0)}
-            className="w-20 min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-16 sm:w-20 min-h-[44px] px-2 sm:px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary shrink-0"
           />
           <button
             onClick={() => { if (grams > 0) saveItems([...items, { key: pick, grams }]); }}
-            className="min-h-[44px] min-w-[44px] px-3.5 py-2.5 rounded-xl gradient-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center shadow-md shrink-0"
+            className="min-h-[44px] min-w-[44px] w-11 h-11 p-0 rounded-xl gradient-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center shadow-md shrink-0"
             aria-label="Add ingredient"
           >
             <Plus size={18} />

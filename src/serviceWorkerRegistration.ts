@@ -61,7 +61,8 @@ export function isStandalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true ||
-    document.referrer.includes('android-app://')
+    document.referrer.includes('android-app://') ||
+    window.location.search.includes('source=pwa')
   );
 }
 
