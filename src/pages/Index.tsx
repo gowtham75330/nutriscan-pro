@@ -17,6 +17,7 @@ import { getServing } from "@/data/servingSizes";
 import { detectMultipleFoodsFromFileName } from "@/lib/foodDetection";
 import { sumNutrition } from "@/lib/nutritionUtils";
 import { useToast } from "@/hooks/use-toast";
+import InstallPrompt, { HeaderInstallButton } from "@/components/InstallPrompt";
 
 interface TrackerEntry { food: NutritionInfo; time: string; }
 
@@ -235,13 +236,16 @@ export default function Index() {
               <p className="text-muted-foreground text-[10px]">Smart Food Nutrition Analyzer</p>
             </div>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.1, rotate: 180 }} whileTap={{ scale: 0.9 }}
-            onClick={toggleDark}
-            className="p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
-          >
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </motion.button>
+          <div className="flex items-center gap-2">
+            <HeaderInstallButton />
+            <motion.button
+              whileHover={{ scale: 1.1, rotate: 180 }} whileTap={{ scale: 0.9 }}
+              onClick={toggleDark}
+              className="p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
+            >
+              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </motion.button>
+          </div>
         </div>
 
         {/* Tab Nav */}
@@ -350,6 +354,8 @@ export default function Index() {
           <p className="text-xs text-muted-foreground">Made with ❤️ · NutriScan Pro · Eat smart, live strong.</p>
         </motion.div>
       </main>
+
+      <InstallPrompt />
     </div>
   );
 }
