@@ -54,39 +54,41 @@ export default function HealthAwareness() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {stats.map((s, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 * i }}
-            className="glass-card p-3 text-center"
+            className="glass-card p-3.5 text-center"
           >
-            <p className="font-heading font-bold text-lg text-primary">{s.num}</p>
-            <p className="text-[10px] text-muted-foreground leading-tight mt-1">{s.text}</p>
+            <p className="font-heading font-bold text-xl text-primary">{s.num}</p>
+            <p className="text-xs text-muted-foreground leading-tight mt-1">{s.text}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Tips */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <h3 className="font-heading font-semibold text-foreground text-sm px-1">🌟 Daily Healthy Habits</h3>
-        {tips.map((t, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 * i }}
-            className="glass-card p-3 flex items-start gap-3"
-          >
-            <span className="text-2xl">{t.emoji}</span>
-            <div>
-              <p className="font-semibold text-sm text-foreground">{t.title}</p>
-              <p className="text-xs text-muted-foreground">{t.desc}</p>
-            </div>
-          </motion.div>
-        ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {tips.map((t, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 * i }}
+              className="glass-card p-3.5 flex items-start gap-3"
+            >
+              <span className="text-2xl shrink-0">{t.emoji}</span>
+              <div>
+                <p className="font-semibold text-sm text-foreground">{t.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </motion.section>
   );

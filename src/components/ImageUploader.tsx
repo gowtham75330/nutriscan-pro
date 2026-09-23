@@ -209,10 +209,10 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             exit={{ opacity: 0, scale: 0.95 }}
             className="relative glass-card overflow-hidden"
           >
-            <img src={imagePreview} alt="Food" className="h-64 w-full rounded-lg object-cover" />
+            <img src={imagePreview} alt="Food" className="h-64 sm:h-80 md:h-96 w-full rounded-xl object-cover" />
             <button
               onClick={() => { onClear(); stopCamera(); setNotFoodMsg(null); }}
-              className="absolute right-3 top-3 rounded-full bg-foreground/70 p-1.5 text-background hover:bg-foreground"
+              className="absolute right-3 top-3 rounded-full bg-foreground/70 p-1.5 text-background hover:bg-foreground transition-colors"
             >
               <X size={16} />
             </button>
@@ -244,7 +244,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             exit={{ opacity: 0 }}
             className="relative glass-card overflow-hidden"
           >
-            <div className="relative w-full overflow-hidden rounded-lg bg-black" style={{ height: "320px" }}>
+            <div className="relative w-full overflow-hidden rounded-xl bg-black h-72 sm:h-96 md:h-[420px]">
               {/* Camera viewfinder grid overlay */}
               <video
                 ref={videoRef}
@@ -344,7 +344,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`group relative glass-card cursor-pointer overflow-hidden border-2 border-dashed p-8 transition-all ${
+            className={`group relative glass-card cursor-pointer overflow-hidden border-2 border-dashed p-6 sm:p-10 md:p-12 transition-all ${
               isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-primary/30 hover:border-primary/60"
             }`}
           >

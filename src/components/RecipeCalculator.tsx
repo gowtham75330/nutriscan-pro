@@ -28,8 +28,12 @@ export default function RecipeCalculator() {
   const score = healthScore(totals);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <div className="glass-card p-4 space-y-3">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={items.length > 0 ? "grid grid-cols-1 lg:grid-cols-12 gap-5 items-start" : "space-y-4"}
+    >
+      <div className={`glass-card p-4 sm:p-5 space-y-3 ${items.length > 0 ? "lg:col-span-7" : ""}`}>
         <div className="flex items-center gap-2">
           <ChefHat size={20} className="text-secondary" />
           <h3 className="font-heading font-bold text-foreground">Recipe Nutrition Calculator</h3>
@@ -53,7 +57,7 @@ export default function RecipeCalculator() {
           />
           <button
             onClick={() => { if (grams > 0) setItems([...items, { key: pick, grams }]); }}
-            className="px-3 py-2 rounded-lg gradient-primary text-primary-foreground"
+            className="px-3 py-2 rounded-lg gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
             aria-label="Add ingredient"
           >
             <Plus size={16} />
@@ -77,7 +81,7 @@ export default function RecipeCalculator() {
                   <span className="text-xs text-muted-foreground">{it.grams}g</span>
                   <button
                     onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                    className="text-destructive hover:opacity-70"
+                    className="text-destructive hover:opacity-70 p-1"
                     aria-label="Remove"
                   ><X size={14} /></button>
                 </motion.div>
@@ -91,9 +95,9 @@ export default function RecipeCalculator() {
       </div>
 
       {items.length > 0 && (
-        <div className="glass-card p-5 space-y-3">
+        <div className="glass-card p-5 space-y-4 lg:col-span-5 lg:sticky lg:top-24">
           <h4 className="font-heading font-semibold text-foreground text-center">🍲 Recipe Total</h4>
-          <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2 text-center">
             <Stat label="Calories" value={`${totals.calories}`} unit="kcal" />
             <Stat label="Protein" value={`${totals.protein}`} unit="g" />
             <Stat label="Carbs" value={`${totals.carbs}`} unit="g" />

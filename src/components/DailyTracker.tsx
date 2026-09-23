@@ -37,48 +37,54 @@ export default function DailyTracker({ entries, onRemove }: Props) {
       {/* Totals */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4">
         <h3 className="font-heading font-bold text-foreground mb-3">📊 Today's Totals</h3>
-        <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center">
           {[
             { label: "Calories", val: `${totals.calories}`, emoji: "🔥" },
             { label: "Protein", val: `${totals.protein.toFixed(1)}g`, emoji: "💪" },
             { label: "Carbs", val: `${totals.carbs.toFixed(1)}g`, emoji: "🍞" },
             { label: "Fat", val: `${totals.fat.toFixed(1)}g`, emoji: "🧈" },
           ].map((t) => (
-            <div key={t.label} className="p-2 rounded-lg bg-muted/50">
-              <span className="text-lg">{t.emoji}</span>
-              <p className="font-bold text-foreground text-sm">{t.val}</p>
-              <p className="text-muted-foreground text-[10px]">{t.label}</p>
+            <div key={t.label} className="p-2.5 sm:p-3 rounded-xl bg-muted/50 border border-border/40">
+              <span className="text-xl sm:text-2xl">{t.emoji}</span>
+              <p className="font-bold text-foreground text-sm sm:text-base mt-0.5">{t.val}</p>
+              <p className="text-muted-foreground text-[10px] sm:text-xs">{t.label}</p>
             </div>
           ))}
         </div>
         {totals.calories > 2000 && (
-          <p className="text-destructive text-xs mt-2 font-medium">⚠️ You've exceeded 2000 kcal today. Consider lighter meals.</p>
+          <p className="text-destructive text-xs mt-2.5 font-medium text-center">⚠️ You've exceeded 2000 kcal today. Consider lighter meals.</p>
         )}
       </motion.div>
 
-      {/* Entries */}
-      <AnimatePresence>
-        {entries.map((entry, i) => (
-          <motion.div
-            key={`${entry.food.name}-${entry.time}`}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="glass-card p-3 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">{entry.food.emoji}</span>
-              <div>
-                <p className="font-semibold text-foreground text-sm">{entry.food.name}</p>
-                <p className="text-muted-foreground text-xs">{entry.food.calories} kcal · {entry.time}</p>
+      {/* Entries Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <AnimatePresence>
+          {entries.map((entry, i) => (
+            <motion.div
+              key={`${entry.food.name}-${entry.time}-${i}`}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-card p-3 sm:p-3.5 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl sm:text-3xl shrink-0">{entry.food.emoji}</span>
+                <div>
+                  <p className="font-semibold text-foreground text-sm sm:text-base">{entry.food.name}</p>
+                  <p className="text-muted-foreground text-xs">{entry.food.calories} kcal · {entry.time}</p>
+                </div>
               </div>
-            </div>
-            <button onClick={() => onRemove(i)} className="p-2 rounded-full hover:bg-destructive/10 text-destructive transition-colors">
-              <Trash2 size={16} />
-            </button>
-          </motion.div>
-        ))}
-      </AnimatePresence>
+              <button
+                onClick={() => onRemove(i)}
+                className="p-2 rounded-full hover:bg-destructive/10 text-destructive transition-colors shrink-0"
+                title="Remove entry"
+              >
+                <Trash2 size={16} />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

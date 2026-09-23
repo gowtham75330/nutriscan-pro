@@ -28,20 +28,20 @@ export default function FoodComparison() {
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <div className="glass-card p-4">
         <h3 className="font-heading font-bold text-foreground mb-3">⚖️ Compare Two Foods</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <FoodPicker label="Food A" value={a} onChange={setA} list={foodList} />
           <FoodPicker label="Food B" value={b} onChange={setB} list={foodList} />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <ScoreCard food={fa} score={sa} />
         <ScoreCard food={fb} score={sb} />
       </div>
 
-      <div className="glass-card p-4">
-        <h4 className="text-sm font-semibold text-foreground mb-2 text-center">📊 Nutrient Comparison</h4>
-        <div className="h-64">
+      <div className="glass-card p-4 sm:p-5">
+        <h4 className="text-sm sm:text-base font-semibold text-foreground mb-3 text-center">📊 Nutrient Comparison</h4>
+        <div className="h-64 sm:h-72 md:h-80">
           <ResponsiveContainer>
             <BarChart data={data} margin={{ left: -10 }}>
               <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
