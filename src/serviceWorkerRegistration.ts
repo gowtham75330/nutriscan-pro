@@ -10,6 +10,16 @@ export function registerServiceWorker() {
   window.addEventListener('load', () => {
     const swUrl = '/sw.js';
 
+    // When a new service worker takes control (after skipWaiting + clients.claim),
+    // reload the page so the browser loads the latest Vite-hashed JS bundles.
+    let reloadPending = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadPending) return; // prevent double-reload
+      reloadPending = true;
+      console.info('[NutriScan PWA] New service worker activated — reloading for fresh assets...');
+      window.location.reload();
+    });
+
     navigator.serviceWorker
       .register(swUrl)
       .then((registration) => {
@@ -20,7 +30,7 @@ export function registerServiceWorker() {
           installingWorker.onstatechange = () => {
             if (installingWorker.state === 'installed') {
               if (navigator.serviceWorker.controller) {
-                console.info('[NutriScan PWA] New version available.');
+                console.info('[NutriScan PWA] New version available — will reload when SW activates.');
               } else {
                 console.info('[NutriScan PWA] Content cached for offline use.');
               }
