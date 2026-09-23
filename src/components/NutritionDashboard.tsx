@@ -143,43 +143,43 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
       className="space-y-5"
     >
       {/* Header with language and voice controls */}
-      <div className="glass-card p-5 flex items-center justify-between">
-        <div>
+      <div className="glass-card p-3.5 sm:p-5 rounded-2xl flex items-center justify-between gap-2.5">
+        <div className="min-w-0 flex-1">
           <motion.h2
             key={displayedFoodName}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="font-heading font-bold text-2xl text-foreground"
+            className="font-heading font-bold text-lg sm:text-2xl text-foreground truncate"
           >
             {nutrition.emoji} {displayedFoodName}
           </motion.h2>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 font-medium">
             {t.analysisResults[lang]}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Language Toggle: English (EN) <-> Tamil (தமிழ்) */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleLanguageToggle}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] ${
               lang === "ta"
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted text-foreground hover:bg-muted/80"
             }`}
             title="Switch Language (English / தமிழ்)"
           >
-            <Languages size={14} />
+            <Languages size={15} />
             <span>{lang === "en" ? "EN" : "தமிழ்"}</span>
           </motion.button>
 
           {/* Voice Speaker button */}
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
             onClick={toggleVoice}
-            className={`p-2.5 rounded-full transition-all ${
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all shadow-sm ${
               speaking
                 ? "bg-destructive text-destructive-foreground animate-pulse"
                 : "gradient-cool text-accent-foreground hover:opacity-90"
@@ -194,17 +194,17 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
                 : "Listen in English"
             }
           >
-            {speaking ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            {speaking ? <VolumeX size={19} /> : <Volume2 size={19} />}
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => exportNutritionPDF(nutrition)}
-            className="p-2.5 rounded-full bg-secondary text-secondary-foreground hover:opacity-90"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary text-secondary-foreground hover:opacity-90 shadow-sm"
             title="Download PDF report"
           >
-            <FileDown size={20} />
+            <FileDown size={19} />
           </motion.button>
         </div>
       </div>
@@ -489,12 +489,12 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
       </motion.div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-2.5 sm:gap-3 pt-1 pb-2">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onAddToTracker}
-          className="flex-1 py-3 rounded-lg gradient-primary text-primary-foreground font-semibold"
+          className="flex-1 min-h-[48px] py-3.5 rounded-xl gradient-primary text-primary-foreground font-bold text-sm sm:text-base shadow-md flex items-center justify-center"
         >
           {t.addToTracker[lang]}
         </motion.button>
@@ -502,7 +502,7 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={toggleVoice}
-          className={`px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-1.5 ${
+          className={`min-h-[48px] px-4 sm:px-6 py-3.5 rounded-xl font-bold text-sm sm:text-base shadow-md flex items-center justify-center gap-1.5 ${
             speaking
               ? "bg-destructive text-destructive-foreground animate-pulse"
               : "gradient-cool text-accent-foreground"

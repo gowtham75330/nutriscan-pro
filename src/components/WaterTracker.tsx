@@ -27,11 +27,11 @@ export default function WaterTracker() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-5 space-y-4"
+      className="glass-card p-4 sm:p-5 space-y-4 rounded-2xl w-full"
     >
       <div className="flex items-center gap-2">
         <Droplet size={20} className="text-accent" />
-        <h3 className="font-heading font-bold text-foreground">Water Intake Tracker</h3>
+        <h3 className="font-heading font-bold text-foreground text-base sm:text-lg">Water Intake Tracker</h3>
       </div>
 
       <div className="text-center">
@@ -65,23 +65,24 @@ export default function WaterTracker() {
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 sm:gap-3">
         <button
           onClick={() => save(Math.max(0, glasses - 1))}
-          className="flex-1 py-2 rounded-lg glass-card font-medium text-foreground flex items-center justify-center gap-1.5"
+          className="flex-1 min-h-[44px] py-2.5 rounded-xl glass-card font-bold text-sm text-foreground flex items-center justify-center gap-1.5 shadow-sm hover:bg-muted/80 transition-colors"
         >
           <Minus size={16} /> Remove
         </button>
         <button
           onClick={() => save(Math.min(20, glasses + 1))}
-          className="flex-1 py-2 rounded-lg gradient-cool text-accent-foreground font-medium flex items-center justify-center gap-1.5"
+          className="flex-1 min-h-[44px] py-2.5 rounded-xl gradient-cool text-accent-foreground font-bold text-sm flex items-center justify-center gap-1.5 shadow-md hover:opacity-95 transition-opacity"
         >
           <Plus size={16} /> Add Glass
         </button>
         <button
           onClick={() => save(0)}
-          className="px-3 py-2 rounded-lg glass-card text-muted-foreground"
+          className="min-h-[44px] px-3.5 py-2.5 rounded-xl glass-card text-muted-foreground hover:text-foreground shadow-sm transition-colors"
           title="Reset"
+          aria-label="Reset water intake"
         >
           <RotateCcw size={16} />
         </button>

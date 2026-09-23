@@ -21,28 +21,28 @@ export default function BMICalculator() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-5 space-y-4"
+      className="glass-card p-4 sm:p-5 space-y-4 rounded-2xl w-full"
     >
       <div className="flex items-center gap-2">
         <Heart size={20} className="text-primary" />
-        <h3 className="font-heading font-bold text-foreground">BMI Calculator</h3>
+        <h3 className="font-heading font-bold text-foreground text-base sm:text-lg">BMI Calculator</h3>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <label className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">Height (cm)</span>
+          <span className="text-xs font-semibold text-muted-foreground">Height (cm)</span>
           <input
             type="number" min={100} max={230} value={height}
             onChange={(e) => setHeight(+e.target.value || 0)}
-            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </label>
         <label className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">Weight (kg)</span>
+          <span className="text-xs font-semibold text-muted-foreground">Weight (kg)</span>
           <input
             type="number" min={20} max={250} value={weight}
             onChange={(e) => setWeight(+e.target.value || 0)}
-            className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </label>
       </div>

@@ -31,14 +31,14 @@ export default function FoodSelector({ selectedFood, onSelectFood, portionSize, 
       className="space-y-4"
     >
       {/* Search */}
-      <div className="glass-card p-3 flex items-center gap-2">
-        <Search size={18} className="text-muted-foreground" />
+      <div className="glass-card p-3 rounded-xl flex items-center gap-2.5 min-h-[48px]">
+        <Search size={18} className="text-muted-foreground ml-1" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search food... (e.g. biryani, apple, chicken)"
-          className="bg-transparent flex-1 outline-none text-sm text-foreground placeholder:text-muted-foreground"
+          className="bg-transparent flex-1 outline-none text-sm text-foreground placeholder:text-muted-foreground font-medium"
         />
       </div>
 
@@ -48,13 +48,13 @@ export default function FoodSelector({ selectedFood, onSelectFood, portionSize, 
           <button
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 shadow-sm ${
               activeCategory === cat.key
                 ? "gradient-primary text-primary-foreground shadow-md"
-                : "glass-card text-foreground hover:scale-105"
+                : "glass-card text-foreground hover:bg-muted/70"
             }`}
           >
-            {cat.emoji} {cat.label}
+            <span>{cat.emoji}</span> <span>{cat.label}</span>
           </button>
         ))}
       </div>
@@ -91,20 +91,20 @@ export default function FoodSelector({ selectedFood, onSelectFood, portionSize, 
 
       {/* Portion Size */}
       <div>
-        <h3 className="font-heading font-semibold text-foreground mb-2 text-sm">📏 Portion Size</h3>
-        <div className="flex gap-3">
+        <h3 className="font-heading font-semibold text-foreground mb-2 text-xs sm:text-sm">📏 Portion Size</h3>
+        <div className="grid grid-cols-3 gap-2">
           {(Object.entries(portionMultipliers) as [PortionSize, typeof portionMultipliers[PortionSize]][]).map(([key, p]) => (
             <button
               key={key}
               onClick={() => onPortionChange(key)}
-              className={`flex-1 py-2.5 rounded-lg text-center transition-all font-medium text-sm ${
+              className={`min-h-[44px] py-2.5 px-1 rounded-xl text-center transition-all font-medium text-xs sm:text-sm flex flex-col items-center justify-center ${
                 portionSize === key
-                  ? "gradient-warm text-secondary-foreground shadow-lg"
-                  : "glass-card text-foreground hover:scale-105"
+                  ? "gradient-warm text-secondary-foreground shadow-md font-bold"
+                  : "glass-card text-foreground hover:bg-muted/70"
               }`}
             >
-              <span className="text-lg block">{p.emoji}</span>
-              {p.label}
+              <span className="text-base sm:text-lg block">{p.emoji}</span>
+              <span>{p.label}</span>
             </button>
           ))}
         </div>
@@ -116,7 +116,7 @@ export default function FoodSelector({ selectedFood, onSelectFood, portionSize, 
         whileTap={{ scale: 0.98 }}
         onClick={onAnalyze}
         disabled={!selectedFood}
-        className="w-full py-4 rounded-lg gradient-primary text-primary-foreground font-heading font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-opacity glow"
+        className="w-full min-h-[48px] py-3.5 rounded-xl gradient-primary text-primary-foreground font-heading font-bold text-base sm:text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-opacity glow shadow-md flex items-center justify-center gap-2"
       >
         🔍 Analyze Nutrition
       </motion.button>

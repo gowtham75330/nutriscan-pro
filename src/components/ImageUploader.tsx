@@ -344,40 +344,42 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`group relative glass-card cursor-pointer overflow-hidden border-2 border-dashed p-6 sm:p-10 md:p-12 transition-all ${
-              isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-primary/30 hover:border-primary/60"
+            className={`group relative glass-card cursor-pointer overflow-hidden border-2 border-dashed min-h-[220px] sm:min-h-[250px] p-6 sm:p-8 flex flex-col items-center justify-center transition-all rounded-2xl ${
+              isDragging ? "border-primary bg-primary/10 scale-[1.01]" : "border-primary/40 hover:border-primary/70"
             }`}
           >
             <motion.div
               className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-10"
               style={{ background: "linear-gradient(135deg, hsl(145 65% 42%), hsl(30 90% 55%), hsl(270 55% 55%))" }}
             />
-            <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-3 text-center">
               <motion.div
-                className="relative flex h-20 w-20 items-center justify-center rounded-full gradient-primary shadow-lg"
+                className="relative flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl gradient-primary shadow-lg"
                 animate={{
                   boxShadow: [
                     "0 0 0px hsl(145 65% 42% / 0)",
-                    "0 0 30px hsl(145 65% 42% / 0.4)",
+                    "0 0 25px hsl(145 65% 42% / 0.4)",
                     "0 0 0px hsl(145 65% 42% / 0)",
                   ],
                 }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                <Upload className="text-primary-foreground" size={30} />
+                <Upload className="text-primary-foreground" size={28} />
               </motion.div>
-              <p className="relative z-10 text-lg font-bold text-foreground">
-                {isDragging ? "Drop food image here!" : "Upload Food Image"}
-              </p>
-              <p className="relative z-10 text-sm text-muted-foreground text-center">
-                Click to browse · Drag & drop · Only food images accepted
-              </p>
-              <div className="mt-1 flex gap-2">
+              <div className="space-y-1">
+                <p className="relative z-10 text-base sm:text-xl font-bold text-foreground">
+                  {isDragging ? "Drop food image here!" : "Upload Food Image"}
+                </p>
+                <p className="relative z-10 text-xs sm:text-sm text-muted-foreground max-w-xs sm:max-w-md mx-auto">
+                  Tap to browse gallery · Take photo · Instant AI analysis
+                </p>
+              </div>
+              <div className="flex gap-2 pt-1">
                 {["🍎", "🍕", "🥗", "🍜", "🥩"].map((emoji, index) => (
                   <motion.span
                     key={index}
-                    className="text-lg"
-                    animate={{ y: [0, -6, 0] }}
+                    className="text-lg sm:text-xl"
+                    animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 1.5, repeat: Infinity, delay: index * 0.2 }}
                   >
                     {emoji}
@@ -396,17 +398,17 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
-            className="rounded-xl border-2 border-destructive/40 bg-destructive/10 p-4 text-center space-y-3"
+            className="rounded-2xl border-2 border-destructive/40 bg-destructive/10 p-4 text-center space-y-2.5"
           >
-            <p className="text-4xl">🚫</p>
-            <p className="font-semibold text-destructive text-sm">{notFoodMsg}</p>
-            <p className="text-xs text-muted-foreground">
-              Our AI checks the actual photo, not the file name — try a clear, well-lit picture of the food.
+            <p className="text-3xl sm:text-4xl">🚫</p>
+            <p className="font-bold text-destructive text-sm sm:text-base">{notFoodMsg}</p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Our AI analyzes the actual photo content — please provide a clear, well-lit picture of a food dish.
             </p>
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => { setNotFoodMsg(null); fileInputRef.current?.click(); }}
-              className="rounded-lg gradient-primary text-primary-foreground px-4 py-2 text-sm font-semibold"
+              className="rounded-xl gradient-primary text-primary-foreground px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md"
             >
               Try Again with Food Image
             </motion.button>
@@ -419,31 +421,41 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
 
       {/* ── GALLERY + CAMERA BUTTONS ── */}
       {!imagePreview && !cameraActive && !notFoodMsg && !isAnalyzing && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => fileInputRef.current?.click()}
-            className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-lg glass-card py-3.5 font-bold text-foreground hover:glow"
+            className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-xl sm:rounded-2xl glass-card h-14 sm:h-16 font-bold text-foreground hover:glow shadow-md border-primary/20"
           >
             <motion.div className="absolute inset-0 gradient-cool opacity-0 transition-opacity group-hover:opacity-15" />
-            <Image size={20} className="relative z-10 text-primary" />
-            <span className="relative z-10">Gallery</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Image size={20} className="text-primary" />
+            </div>
+            <div className="text-left">
+              <span className="block text-sm sm:text-base font-bold leading-tight">Gallery</span>
+              <span className="block text-[10px] sm:text-xs text-muted-foreground font-normal">Choose photo</span>
+            </div>
           </motion.button>
 
           <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => startCamera("environment")}
-            className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-lg glass-card py-3.5 font-bold text-foreground hover:glow"
+            className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-xl sm:rounded-2xl glass-card h-14 sm:h-16 font-bold text-foreground hover:glow shadow-md border-accent/20"
           >
             <motion.div className="absolute inset-0 gradient-warm opacity-0 transition-opacity group-hover:opacity-15" />
-            <Camera size={20} className="relative z-10 text-accent" />
-            <span className="relative z-10">Camera</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+              <Camera size={20} className="text-accent" />
+            </div>
+            <div className="text-left">
+              <span className="block text-sm sm:text-base font-bold leading-tight">Camera</span>
+              <span className="block text-[10px] sm:text-xs text-muted-foreground font-normal">Snap photo</span>
+            </div>
           </motion.button>
         </div>
       )}

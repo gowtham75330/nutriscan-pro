@@ -31,12 +31,12 @@ export default function RecipeCalculator() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={items.length > 0 ? "grid grid-cols-1 lg:grid-cols-12 gap-5 items-start" : "space-y-4"}
+      className={items.length > 0 ? "grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start w-full" : "space-y-4 w-full"}
     >
-      <div className={`glass-card p-4 sm:p-5 space-y-3 ${items.length > 0 ? "lg:col-span-7" : ""}`}>
+      <div className={`glass-card p-3.5 sm:p-5 space-y-3.5 rounded-2xl w-full ${items.length > 0 ? "lg:col-span-7" : ""}`}>
         <div className="flex items-center gap-2">
           <ChefHat size={20} className="text-secondary" />
-          <h3 className="font-heading font-bold text-foreground">Recipe Nutrition Calculator</h3>
+          <h3 className="font-heading font-bold text-foreground text-base sm:text-lg">Recipe Nutrition Calculator</h3>
         </div>
         <p className="text-xs text-muted-foreground">Add every ingredient with its weight (in grams) — we'll total the nutrition for the full recipe.</p>
 
@@ -44,7 +44,7 @@ export default function RecipeCalculator() {
           <select
             value={pick}
             onChange={(e) => setPick(e.target.value)}
-            className="flex-1 px-2 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {Object.entries(nutritionDatabase).map(([k, v]) => (
               <option key={k} value={k}>{v.emoji} {v.name}</option>
@@ -53,14 +53,14 @@ export default function RecipeCalculator() {
           <input
             type="number" min={1} value={grams}
             onChange={(e) => setGrams(+e.target.value || 0)}
-            className="w-20 px-2 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-20 min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button
             onClick={() => { if (grams > 0) setItems([...items, { key: pick, grams }]); }}
-            className="px-3 py-2 rounded-lg gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            className="min-h-[44px] min-w-[44px] px-3.5 py-2.5 rounded-xl gradient-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center shadow-md shrink-0"
             aria-label="Add ingredient"
           >
-            <Plus size={16} />
+            <Plus size={18} />
           </button>
         </div>
 

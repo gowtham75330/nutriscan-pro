@@ -120,35 +120,35 @@ export default function InstallPrompt() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto"
+            className="fixed bottom-3 sm:bottom-4 left-2.5 right-2.5 sm:left-4 sm:right-4 z-50 max-w-md mx-auto"
           >
-            <div className="glass-card p-4 shadow-2xl border-primary/30 bg-background/95 backdrop-blur-md rounded-2xl flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shrink-0 shadow-md">
-                  <Smartphone className="text-white" size={24} />
+            <div className="glass-card p-3 sm:p-4 shadow-2xl border-primary/30 bg-background/95 backdrop-blur-md rounded-2xl flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shrink-0 shadow-md">
+                  <Smartphone className="text-white" size={22} />
                 </div>
-                <div>
-                  <h4 className="font-heading font-bold text-sm text-foreground flex items-center gap-1.5">
-                    Install NutriScan App
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
-                      Fast & Free
+                <div className="min-w-0">
+                  <h4 className="font-heading font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5 truncate">
+                    <span>Install NutriScan</span>
+                    <span className="text-[9px] sm:text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold shrink-0">
+                      App
                     </span>
                   </h4>
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    Add to home screen for 1-tap food nutrition scanning
+                  <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
+                    1-tap food nutrition scanning
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleInstallClick}
-                  className="px-3.5 py-2 rounded-xl gradient-primary text-primary-foreground text-xs font-bold shadow-md flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-xl gradient-primary text-primary-foreground text-xs font-bold shadow-md flex items-center gap-1.5 min-h-[36px]"
                 >
                   <Download size={14} />
-                  Install
+                  <span>Install</span>
                 </motion.button>
                 <button
                   onClick={handleDismiss}

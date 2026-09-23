@@ -35,9 +35,9 @@ export default function DailyTracker({ entries, onRemove }: Props) {
   return (
     <div className="space-y-3">
       {/* Totals */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-4">
-        <h3 className="font-heading font-bold text-foreground mb-3">📊 Today's Totals</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-center">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-3.5 sm:p-4 rounded-2xl w-full">
+        <h3 className="font-heading font-bold text-foreground text-sm sm:text-base mb-2.5 sm:mb-3">📊 Today's Totals</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-center">
           {[
             { label: "Calories", val: `${totals.calories}`, emoji: "🔥" },
             { label: "Protein", val: `${totals.protein.toFixed(1)}g`, emoji: "💪" },
@@ -47,7 +47,7 @@ export default function DailyTracker({ entries, onRemove }: Props) {
             <div key={t.label} className="p-2.5 sm:p-3 rounded-xl bg-muted/50 border border-border/40">
               <span className="text-xl sm:text-2xl">{t.emoji}</span>
               <p className="font-bold text-foreground text-sm sm:text-base mt-0.5">{t.val}</p>
-              <p className="text-muted-foreground text-[10px] sm:text-xs">{t.label}</p>
+              <p className="text-muted-foreground text-[11px] sm:text-xs font-medium">{t.label}</p>
             </div>
           ))}
         </div>
@@ -57,7 +57,7 @@ export default function DailyTracker({ entries, onRemove }: Props) {
       </motion.div>
 
       {/* Entries Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
         <AnimatePresence>
           {entries.map((entry, i) => (
             <motion.div
@@ -65,21 +65,22 @@ export default function DailyTracker({ entries, onRemove }: Props) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="glass-card p-3 sm:p-3.5 flex items-center justify-between"
+              className="glass-card p-3 sm:p-3.5 flex items-center justify-between rounded-xl sm:rounded-2xl"
             >
               <div className="flex items-center gap-3">
-                <span className="text-2xl sm:text-3xl shrink-0">{entry.food.emoji}</span>
+                <span className="text-2xl sm:text-3xl shrink-0 p-1 rounded-xl bg-muted/40">{entry.food.emoji}</span>
                 <div>
-                  <p className="font-semibold text-foreground text-sm sm:text-base">{entry.food.name}</p>
-                  <p className="text-muted-foreground text-xs">{entry.food.calories} kcal · {entry.time}</p>
+                  <p className="font-bold text-foreground text-sm sm:text-base">{entry.food.name}</p>
+                  <p className="text-muted-foreground text-xs font-medium">{entry.food.calories} kcal · {entry.time}</p>
                 </div>
               </div>
               <button
                 onClick={() => onRemove(i)}
-                className="p-2 rounded-full hover:bg-destructive/10 text-destructive transition-colors shrink-0"
+                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-destructive/10 text-destructive transition-colors shrink-0"
                 title="Remove entry"
+                aria-label="Remove meal entry"
               >
-                <Trash2 size={16} />
+                <Trash2 size={18} />
               </button>
             </motion.div>
           ))}

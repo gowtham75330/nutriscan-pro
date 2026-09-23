@@ -25,9 +25,9 @@ export default function FoodComparison() {
   const sb = healthScore(fb);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <div className="glass-card p-4">
-        <h3 className="font-heading font-bold text-foreground mb-3">⚖️ Compare Two Foods</h3>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3.5 sm:space-y-4 w-full">
+      <div className="glass-card p-3.5 sm:p-5 rounded-2xl">
+        <h3 className="font-heading font-bold text-foreground text-sm sm:text-base mb-2.5 sm:mb-3">⚖️ Compare Two Foods</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <FoodPicker label="Food A" value={a} onChange={setA} list={foodList} />
           <FoodPicker label="Food B" value={b} onChange={setB} list={foodList} />
@@ -39,9 +39,9 @@ export default function FoodComparison() {
         <ScoreCard food={fb} score={sb} />
       </div>
 
-      <div className="glass-card p-4 sm:p-5">
+      <div className="glass-card p-3.5 sm:p-5 rounded-2xl">
         <h4 className="text-sm sm:text-base font-semibold text-foreground mb-3 text-center">📊 Nutrient Comparison</h4>
-        <div className="h-64 sm:h-72 md:h-80">
+        <div className="h-60 sm:h-72 md:h-80">
           <ResponsiveContainer>
             <BarChart data={data} margin={{ left: -10 }}>
               <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
@@ -55,8 +55,8 @@ export default function FoodComparison() {
         </div>
       </div>
 
-      <div className="glass-card p-4 border-l-4 border-primary">
-        <p className="text-sm text-foreground">
+      <div className="glass-card p-3.5 sm:p-4 rounded-2xl border-l-4 border-primary">
+        <p className="text-xs sm:text-sm text-foreground">
           🏆 <b>Healthier choice:</b>{" "}
           {sa.score >= sb.score ? `${fa.emoji} ${fa.name}` : `${fb.emoji} ${fb.name}`} — better balance of macros and micronutrients.
         </p>
@@ -68,11 +68,11 @@ export default function FoodComparison() {
 function FoodPicker({ label, value, onChange, list }: { label: string; value: string; onChange: (v: string) => void; list: { key: string; label: string }[] }) {
   return (
     <label className="space-y-1 block">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-full min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
       >
         {list.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
       </select>
@@ -82,12 +82,12 @@ function FoodPicker({ label, value, onChange, list }: { label: string; value: st
 
 function ScoreCard({ food, score }: { food: { name: string; emoji: string; calories: number }; score: { score: number; label: string; color: string } }) {
   return (
-    <div className="glass-card p-4 text-center">
+    <div className="glass-card p-4 rounded-2xl text-center">
       <p className="text-2xl">{food.emoji}</p>
-      <p className="text-sm font-semibold text-foreground truncate">{food.name}</p>
+      <p className="text-sm font-bold text-foreground truncate mt-0.5">{food.name}</p>
       <p className="text-3xl font-heading font-bold mt-1" style={{ color: score.color }}>{score.score}</p>
-      <p className="text-xs font-medium" style={{ color: score.color }}>{score.label}</p>
-      <p className="text-[10px] text-muted-foreground mt-1">{food.calories} kcal</p>
+      <p className="text-xs font-semibold" style={{ color: score.color }}>{score.label}</p>
+      <p className="text-[11px] text-muted-foreground mt-1 font-medium">{food.calories} kcal</p>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import BMICalculator from "@/components/BMICalculator";
 import WaterTracker from "@/components/WaterTracker";
 import FoodComparison from "@/components/FoodComparison";
 import RecipeCalculator from "@/components/RecipeCalculator";
-import HealthAwareness from "@/components/HealthAwareness";
+import HealthAwareness, { HealthHero, HealthStats, HealthyHabits } from "@/components/HealthAwareness";
 import { calculateNutrition, nutritionDatabase, type PortionSize, type NutritionInfo, portionMultipliers } from "@/data/nutritionData";
 import { getServing } from "@/data/servingSizes";
 import { detectMultipleFoodsFromFileName } from "@/lib/foodDetection";
@@ -219,39 +219,40 @@ export default function Index() {
       </div>
 
       <header className="sticky top-0 z-50 glass-card rounded-none border-x-0 border-t-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
             <motion.div
-              className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg shrink-0"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl gradient-primary flex items-center justify-center shadow-md shrink-0"
               whileHover={{ rotate: 15, scale: 1.1 }}
-              animate={{ boxShadow: ["0 0 0px hsl(145 65% 42%)", "0 0 20px hsl(145 65% 42% / 0.4)", "0 0 0px hsl(145 65% 42%)"] }}
+              animate={{ boxShadow: ["0 0 0px hsl(145 65% 42%)", "0 0 16px hsl(145 65% 42% / 0.4)", "0 0 0px hsl(145 65% 42%)"] }}
               transition={{ boxShadow: { duration: 2, repeat: Infinity } }}
             >
-              <Utensils size={20} className="text-primary-foreground" />
+              <Utensils size={18} className="text-primary-foreground sm:w-5 sm:h-5" />
             </motion.div>
             <div>
               <h1 className="font-heading font-bold text-base sm:text-lg leading-tight bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 NutriScan Pro
               </h1>
-              <p className="text-muted-foreground text-[10px] sm:text-xs">Smart Food Nutrition Analyzer</p>
+              <p className="text-muted-foreground text-[10px] sm:text-xs font-medium">Smart Nutrition Analyzer</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             <HeaderInstallButton />
             <motion.button
-              whileHover={{ scale: 1.1, rotate: 180 }} whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.08, rotate: 180 }}
+              whileTap={{ scale: 0.92 }}
               onClick={toggleDark}
-              className="p-2 sm:p-2.5 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
+              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-muted/70 text-foreground hover:bg-muted transition-colors shadow-sm"
               aria-label="Toggle dark mode"
             >
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+              {darkMode ? <Sun size={17} /> : <Moon size={17} />}
             </motion.button>
           </div>
         </div>
 
         {/* Tab Nav */}
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-2.5">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide sm:justify-center p-1 bg-muted/40 rounded-xl max-w-fit sm:mx-auto">
+        <nav className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 pb-2 sm:pb-3">
+          <div className="flex gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide sm:justify-center p-1 bg-muted/40 rounded-xl sm:rounded-2xl w-full sm:w-auto">
             {tabs.map((t) => {
               const Icon = t.icon;
               const active = tab === t.key;
@@ -259,14 +260,14 @@ export default function Index() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`min-w-fit flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
-                    active ? "gradient-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className={`flex-1 sm:flex-initial min-w-fit flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all min-h-[38px] sm:min-h-[42px] ${
+                    active ? "gradient-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                   }`}
                 >
                   <Icon size={15} />
-                  {t.label}
+                  <span>{t.label}</span>
                   {t.key === "tracker" && tracker.length > 0 && (
-                    <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary/30 text-secondary"}`}>
+                    <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-secondary/30 text-secondary"}`}>
                       {tracker.length}
                     </span>
                   )}
@@ -277,15 +278,28 @@ export default function Index() {
         </nav>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
         <AnimatePresence mode="wait">
           {tab === "scan" && (
             <motion.div key="scan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {!result && (
-                <div className="max-w-3xl mx-auto space-y-5">
-                  {!imagePreview && !isScanning && !showManualSelect && <HealthAwareness />}
+                <div className="w-full max-w-3xl mx-auto space-y-3.5 sm:space-y-5">
+                  {!imagePreview && !isScanning && !showManualSelect && (
+                    <>
+                      <HealthHero />
+                      <HealthStats />
+                    </>
+                  )}
 
-                  <ImageUploader imagePreview={imagePreview} onImageCaptured={handleImageCaptured} onClear={handleReset} />
+                  <ImageUploader
+                    imagePreview={imagePreview}
+                    onImageCaptured={handleImageCaptured}
+                    onClear={handleReset}
+                  />
+
+                  {!imagePreview && !isScanning && !showManualSelect && (
+                    <HealthyHabits />
+                  )}
 
                   {isScanning && <ScanningAnimation onComplete={handleScanComplete} />}
 
@@ -319,7 +333,7 @@ export default function Index() {
           {tab === "text" && (
             <motion.div key="text" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {!result ? (
-                <div className="max-w-3xl mx-auto space-y-5">
+                <div className="w-full max-w-3xl mx-auto space-y-4">
                   <TextAnalyzer onAnalyze={handleTextAnalyze} />
                 </div>
               ) : (
@@ -338,33 +352,33 @@ export default function Index() {
           )}
 
           {tab === "compare" && (
-            <motion.div key="compare" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-5xl mx-auto">
+            <motion.div key="compare" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-5xl mx-auto">
               <FoodComparison />
             </motion.div>
           )}
 
           {tab === "recipe" && (
-            <motion.div key="recipe" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-5xl mx-auto">
+            <motion.div key="recipe" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-5xl mx-auto">
               <RecipeCalculator />
             </motion.div>
           )}
 
           {tab === "tools" && (
-            <motion.div key="tools" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start max-w-5xl mx-auto">
+            <motion.div key="tools" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start max-w-5xl mx-auto">
               <BMICalculator />
               <WaterTracker />
             </motion.div>
           )}
 
           {tab === "tracker" && (
-            <motion.div key="tracker" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-5xl mx-auto">
+            <motion.div key="tracker" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-5xl mx-auto">
               <DailyTracker entries={tracker} onRemove={handleRemoveEntry} />
             </motion.div>
           )}
         </AnimatePresence>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center py-6">
-          <p className="text-xs text-muted-foreground">Made with ❤️ · NutriScan Pro · Eat smart, live strong.</p>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="text-center py-6 sm:py-8 pb-10">
+          <p className="text-xs text-muted-foreground font-medium">Made with ❤️ · NutriScan Pro · Eat smart, live strong.</p>
         </motion.div>
       </main>
 
@@ -382,11 +396,11 @@ function ResultBlock({
   imagePreview?: string | null;
 }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start max-w-6xl mx-auto">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start max-w-6xl mx-auto w-full">
       {/* Left Column on Desktop / Top Stack on Mobile */}
-      <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
+      <div className="lg:col-span-5 space-y-3 sm:space-y-4 lg:sticky lg:top-24 w-full">
         {imagePreview && (
-          <div className="glass-card overflow-hidden p-2">
+          <div className="glass-card overflow-hidden p-1.5 sm:p-2 rounded-2xl shadow-md">
             <img
               src={imagePreview}
               alt={label}
@@ -395,13 +409,13 @@ function ResultBlock({
           </div>
         )}
 
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-4 text-center relative overflow-hidden">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-3.5 sm:p-4 text-center relative overflow-hidden rounded-2xl">
           <motion.div className="absolute inset-0 opacity-10"
             style={{ background: "linear-gradient(135deg, hsl(145 65% 42%), hsl(30 90% 55%), hsl(270 55% 55%))" }}
             animate={{ rotate: [0, 360] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} />
           <div className="relative z-10">
-            <p className="text-sm text-muted-foreground">
-              Analyzing: <span className="font-bold text-foreground">{label}</span>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Analyzing: <span className="font-bold text-foreground text-sm sm:text-base">{label}</span>
             </p>
             {confidence > 0 && confidence < 1 && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -412,17 +426,17 @@ function ResultBlock({
         </motion.div>
 
         {!hidePortion && (
-          <div className="glass-card p-4">
-            <h3 className="font-heading font-semibold text-foreground mb-3 text-sm">📏 Portion Size</h3>
+          <div className="glass-card p-3.5 sm:p-4 rounded-2xl">
+            <h3 className="font-heading font-semibold text-foreground mb-2 sm:mb-3 text-xs sm:text-sm">📏 Portion Size</h3>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(portionMultipliers) as [PortionSize, typeof portionMultipliers[PortionSize]][]).map(([key, p]) => (
                 <motion.button key={key} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => onPortionChange(key)}
-                  className={`py-2.5 px-1 rounded-lg text-center transition-all font-medium text-xs sm:text-sm ${
+                  className={`min-h-[44px] py-2.5 px-1 rounded-xl text-center transition-all font-medium text-xs sm:text-sm flex flex-col items-center justify-center ${
                     portionSize === key ? "gradient-warm text-secondary-foreground shadow-md font-bold" : "bg-muted/60 text-foreground hover:bg-muted"
                   }`}>
-                  <span className="text-base block">{p.emoji}</span>
-                  {p.label}
+                  <span className="text-base sm:text-lg block">{p.emoji}</span>
+                  <span>{p.label}</span>
                 </motion.button>
               ))}
             </div>
@@ -432,20 +446,20 @@ function ResultBlock({
         <div className="hidden lg:block space-y-2">
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             onClick={onReset}
-            className="w-full py-3 rounded-lg glass-card font-semibold text-foreground hover:glow transition-all">
+            className="w-full h-12 rounded-xl glass-card font-bold text-sm text-foreground hover:glow transition-all">
             🔄 Analyze Another Food
           </motion.button>
         </div>
       </div>
 
       {/* Right Column on Desktop / Content on Mobile */}
-      <div className="lg:col-span-7 space-y-4">
+      <div className="lg:col-span-7 space-y-3 sm:space-y-4 w-full">
         <NutritionDashboard nutrition={result} onAddToTracker={onAdd} />
 
-        <div className="lg:hidden pt-2">
+        <div className="lg:hidden pt-1 pb-4">
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
             onClick={onReset}
-            className="w-full py-3 rounded-lg glass-card font-semibold text-foreground">
+            className="w-full h-13 py-3.5 rounded-xl glass-card font-bold text-sm sm:text-base text-foreground shadow-md">
             🔄 Analyze Another Food
           </motion.button>
         </div>
