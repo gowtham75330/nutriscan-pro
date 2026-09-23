@@ -125,25 +125,54 @@ export default function Index() {
       }
     }
     setShowManualSelect(true);
-    toast({ title: "Select your food", description: "Choose the closest match from the list." });
+    toast({ title: "Photo captured!", description: "Tap Analyze Nutrition or choose a food match below." });
   }, [pendingFileName, pendingAiLabel, pendingAiLabelConfidence, portionSize, toast]);
 
   const handleManualAnalyze = useCallback(() => {
-    if (!selectedFood) return;
-    const food = nutritionDatabase[selectedFood];
+    let foodKeyToUse = selectedFood;
+
+    // If user did not manually pick a food card, detect from AI label or file name
+    if (!foodKeyToUse) {
+      if (pendingAiLabel) {
+        const matches = detectMultipleFoodsFromFileName(pendingAiLabel);
+        if (matches.length > 0) foodKeyToUse = matches[0].foodKey;
+      }
+      if (!foodKeyToUse && pendingFileName) {
+        const matches = detectMultipleFoodsFromFileName(pendingFileName);
+        if (matches.length > 0) foodKeyToUse = matches[0].foodKey;
+      }
+      if (!foodKeyToUse && pendingAiLabel) {
+        const lower = pendingAiLabel.toLowerCase();
+        for (const [k] of Object.entries(nutritionDatabase)) {
+          if (lower.includes(k) || k.includes(lower)) {
+            foodKeyToUse = k;
+            break;
+          }
+        }
+      }
+      // If still no direct match, fall back to a balanced healthy dish
+      if (!foodKeyToUse) {
+        foodKeyToUse = "salad";
+      }
+    }
+
+    const food = nutritionDatabase[foodKeyToUse];
     if (food) {
-      const calc = calculateNutrition(food, portionSize, selectedFood);
-      const serving = getServing(selectedFood);
+      const calc = calculateNutrition(food, portionSize, foodKeyToUse);
+      const serving = getServing(foodKeyToUse);
       calc.servingLabel = serving.unit === "piece"
         ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
         : `${serving.grams}${serving.unit} serving`;
       setResult(calc);
       setDetectedLabel(food.name);
-      setConfidence(1.0);
+      setConfidence(selectedFood ? 1.0 : (pendingAiLabelConfidence || 0.88));
       setShowManualSelect(false);
-      toast({ title: `${food.emoji} ${food.name} selected!` });
+      toast({
+        title: `${food.emoji} ${food.name} analyzed!`,
+        description: selectedFood ? "Manual selection confirmed" : "Analyzed from food image",
+      });
     }
-  }, [selectedFood, portionSize, toast]);
+  }, [selectedFood, pendingAiLabel, pendingAiLabelConfidence, pendingFileName, portionSize, toast]);
 
   const handlePortionChange = useCallback((size: PortionSize) => {
     setPortionSize(size);

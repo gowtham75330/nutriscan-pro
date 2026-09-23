@@ -209,7 +209,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             exit={{ opacity: 0, scale: 0.95 }}
             className="relative glass-card overflow-hidden"
           >
-            <img src={imagePreview} alt="Food" className="h-64 sm:h-80 md:h-96 w-full rounded-xl object-cover" />
+            <img src={imagePreview} alt="Food" className="h-48 sm:h-72 md:h-80 w-full rounded-xl object-cover shadow-sm" />
             <button
               onClick={() => { onClear(); stopCamera(); setNotFoodMsg(null); }}
               className="absolute right-3 top-3 rounded-full bg-foreground/70 p-1.5 text-background hover:bg-foreground transition-colors"
