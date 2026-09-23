@@ -16,21 +16,14 @@ export const tips = [
 export function HealthHero() {
   return (
     <div className="relative glass-card overflow-hidden p-4 sm:p-6 text-center">
-      <motion.div
-        className="absolute inset-0 opacity-20"
+      <div
+        className="absolute inset-0 opacity-20 pointer-events-none"
         style={{ background: "linear-gradient(135deg, hsl(145 65% 42%), hsl(30 90% 55%), hsl(270 55% 55%))" }}
-        animate={{ backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"] }}
-        transition={{ duration: 8, repeat: Infinity }}
       />
       <div className="relative z-10 space-y-1.5 sm:space-y-2">
-        <motion.h2
-          className="font-heading font-bold text-xl sm:text-2xl bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent"
-          animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-          style={{ backgroundSize: "200% 200%" }}
-          transition={{ duration: 4, repeat: Infinity }}
-        >
+        <h2 className="font-heading font-bold text-xl sm:text-2xl bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
           Eat Smart. Live Strong.
-        </motion.h2>
+        </h2>
         <p className="text-xs sm:text-sm text-foreground/85 max-w-lg mx-auto leading-relaxed">
           Are the foods on your plate actually keeping you healthy? <br className="hidden sm:inline" />
           <b className="font-semibold text-foreground">NutriScan Pro</b> turns every meal into clear, honest nutrition insight.

@@ -7,11 +7,32 @@ import { scaleNutrition, sumNutrition, healthScore } from "@/lib/nutritionUtils"
 
 interface Ingredient { key: string; grams: number; }
 
+const RECIPE_STORAGE_KEY = "nutriscan-recipe-ingredients";
+
+const DEFAULT_INGREDIENTS: Ingredient[] = [
+  { key: "rice", grams: 150 },
+  { key: "dal", grams: 80 },
+];
+
 export default function RecipeCalculator() {
-  const [items, setItems] = useState<Ingredient[]>([
-    { key: "rice", grams: 150 },
-    { key: "dal", grams: 80 },
-  ]);
+  const [items, setItems] = useState<Ingredient[]>(() => {
+    try {
+      const saved = localStorage.getItem(RECIPE_STORAGE_KEY);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return DEFAULT_INGREDIENTS;
+  });
+
+  const saveItems = (newItems: Ingredient[]) => {
+    setItems(newItems);
+    try {
+      localStorage.setItem(RECIPE_STORAGE_KEY, JSON.stringify(newItems));
+    } catch {}
+  };
+
   const [pick, setPick] = useState("chicken");
   const [grams, setGrams] = useState(100);
 
@@ -56,7 +77,7 @@ export default function RecipeCalculator() {
             className="w-20 min-h-[44px] px-3 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button
-            onClick={() => { if (grams > 0) setItems([...items, { key: pick, grams }]); }}
+            onClick={() => { if (grams > 0) saveItems([...items, { key: pick, grams }]); }}
             className="min-h-[44px] min-w-[44px] px-3.5 py-2.5 rounded-xl gradient-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center justify-center shadow-md shrink-0"
             aria-label="Add ingredient"
           >
@@ -80,7 +101,7 @@ export default function RecipeCalculator() {
                   <span className="flex-1 text-sm font-medium text-foreground">{f.name}</span>
                   <span className="text-xs text-muted-foreground">{it.grams}g</span>
                   <button
-                    onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                    onClick={() => saveItems(items.filter((_, i) => i !== idx))}
                     className="text-destructive hover:opacity-70 p-1"
                     aria-label="Remove"
                   ><X size={14} /></button>

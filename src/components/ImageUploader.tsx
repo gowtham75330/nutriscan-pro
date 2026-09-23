@@ -355,14 +355,8 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             <div className="flex flex-col items-center gap-3 text-center">
               <motion.div
                 className="relative flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-2xl gradient-primary shadow-lg"
-                animate={{
-                  boxShadow: [
-                    "0 0 0px hsl(145 65% 42% / 0)",
-                    "0 0 25px hsl(145 65% 42% / 0.4)",
-                    "0 0 0px hsl(145 65% 42% / 0)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
+                animate={{ scale: [1, 1.04, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
               >
                 <Upload className="text-primary-foreground" size={28} />
               </motion.div>

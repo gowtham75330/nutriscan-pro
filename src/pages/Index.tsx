@@ -218,14 +218,12 @@ export default function Index() {
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} />
       </div>
 
-      <header className="sticky top-0 z-50 glass-card rounded-none border-x-0 border-t-0">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transform-gpu will-change-transform isolate">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <motion.div
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl gradient-primary flex items-center justify-center shadow-md shrink-0"
               whileHover={{ rotate: 15, scale: 1.1 }}
-              animate={{ boxShadow: ["0 0 0px hsl(145 65% 42%)", "0 0 16px hsl(145 65% 42% / 0.4)", "0 0 0px hsl(145 65% 42%)"] }}
-              transition={{ boxShadow: { duration: 2, repeat: Infinity } }}
             >
               <Utensils size={18} className="text-primary-foreground sm:w-5 sm:h-5" />
             </motion.div>
@@ -251,7 +249,7 @@ export default function Index() {
         </div>
 
         {/* Tab Nav */}
-        <nav className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 pb-2 sm:pb-3">
+        <nav className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 pb-2 sm:pb-3 transform-gpu">
           <div className="flex gap-1 sm:gap-1.5 overflow-x-auto scrollbar-hide sm:justify-center p-1 bg-muted/40 rounded-xl sm:rounded-2xl w-full sm:w-auto">
             {tabs.map((t) => {
               const Icon = t.icon;
