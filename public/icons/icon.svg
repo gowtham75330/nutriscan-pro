@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#16a34a" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="heartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#064e3b" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <rect x="24" y="24" width="464" height="464" rx="120" fill="url(#bgGrad)" filter="url(#dropShadow)" />
+  <rect x="24" y="24" width="464" height="464" rx="120" fill="none" stroke="url(#glowGrad)" stroke-width="4" />
+  <circle cx="256" cy="256" r="168" fill="none" stroke="#ffffff" stroke-opacity="0.2" stroke-width="6" stroke-dasharray="12 12" />
+
+  <g transform="translate(256, 256)">
+    <!-- FORK -->
+    <g transform="translate(-80, 0)">
+      <rect x="-6" y="-10" width="12" height="150" rx="6" fill="#ffffff" />
+      <path d="M -26,-10 C -26,30 26,30 26,-10 Z" fill="#ffffff" />
+      <rect x="-24" y="-100" width="8" height="95" rx="4" fill="#ffffff" />
+      <rect x="-4" y="-100" width="8" height="95" rx="4" fill="#ffffff" />
+      <rect x="16" y="-100" width="8" height="95" rx="4" fill="#ffffff" />
+    </g>
+
+    <!-- KNIFE -->
+    <g transform="translate(80, 0)">
+      <rect x="-6" y="-10" width="12" height="150" rx="6" fill="#ffffff" />
+      <path d="M -6,-10 L 14,-10 C 14,-60 8,-95 -6,-100 Z" fill="#ffffff" />
+    </g>
+
+    <!-- CENTER SPROUT -->
+    <g transform="translate(0, -50)">
+      <path d="M 0,10 C -45,-15 -45,-60 0,-70 C 5,-35 0,10 0,10 Z" fill="#ffffff" />
+      <path d="M 0,10 C 45,-15 45,-60 0,-70 C -5,-35 0,10 0,10 Z" fill="#ffffff" opacity="0.9" />
+      <path d="M 0,10 Q 0,40 -4,55" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+    </g>
+
+    <!-- CENTER HEART -->
+    <g transform="translate(0, 30) scale(1.15)">
+      <path d="M 0,25 C -25,-5 -40,-25 -25,-40 C -12,-52 0,-32 0,-32 C 0,-32 12,-52 25,-40 C 40,-25 25,-5 0,25 Z"
+            fill="url(#heartGrad)" filter="drop-shadow(0 4px 10px rgba(234, 88, 12, 0.5))" />
+    </g>
+  </g>
+</svg>
+
