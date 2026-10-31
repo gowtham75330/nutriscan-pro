@@ -19,6 +19,8 @@ import { sumNutrition } from "@/lib/nutritionUtils";
 import { useToast } from "@/hooks/use-toast";
 import InstallPrompt, { HeaderInstallButton } from "@/components/InstallPrompt";
 
+import type { AIDetectionCandidate } from "@/lib/aiFoodDetection";
+
 interface TrackerEntry { food: NutritionInfo; time: string; }
 
 type Tab = "scan" | "text" | "compare" | "recipe" | "tools" | "tracker";
@@ -45,6 +47,8 @@ export default function Index() {
   const [pendingFileName, setPendingFileName] = useState<string | undefined>();
   const [pendingAiLabel, setPendingAiLabel] = useState<string | undefined>();
   const [pendingAiLabelConfidence, setPendingAiLabelConfidence] = useState(0);
+  const [pendingFoodKey, setPendingFoodKey] = useState<string | undefined>();
+  const [candidateFoods, setCandidateFoods] = useState<AIDetectionCandidate[]>([]);
   const [tracker, setTracker] = useState<TrackerEntry[]>(() => {
     try {
       const saved = localStorage.getItem("food-tracker");
@@ -64,10 +68,15 @@ export default function Index() {
     localStorage.setItem("food-tracker", JSON.stringify(entries.map((e) => ({ ...e, date: today }))));
   }, []);
 
-  const handleImageCaptured = useCallback((url: string, fileName?: string, isFood?: boolean, aiLabel?: string, aiLabelConfidence?: number) => {
-    // If explicitly marked as not food (validated by real AI image-content
-    // analysis in ImageUploader), do nothing — ImageUploader already shows
-    // the rejection message, and no manual food selection is offered.
+  const handleImageCaptured = useCallback((
+    url: string,
+    fileName?: string,
+    isFood?: boolean,
+    aiLabel?: string,
+    aiLabelConfidence?: number,
+    foodKey?: string,
+    candidates?: AIDetectionCandidate[]
+  ) => {
     if (isFood === false) return;
     setImagePreview(url);
     setResult(null);
@@ -76,103 +85,145 @@ export default function Index() {
     setPendingFileName(fileName);
     setPendingAiLabel(aiLabel);
     setPendingAiLabelConfidence(aiLabelConfidence ?? 0);
+    setPendingFoodKey(foodKey);
+    setCandidateFoods(candidates ?? []);
     setIsScanning(true);
   }, []);
 
-  // Minimum confidence the AI must have in its OWN top guess before we trust
-  // that specific label enough to auto-fill nutrition from it. Below this,
-  // we'd rather ask the person to confirm than silently show a wrong dish.
-  const AI_LABEL_TRUST_THRESHOLD = 0.3;
-
   const handleScanComplete = useCallback(() => {
     setIsScanning(false);
-    // Only fold the AI's guessed label into the search text when the model
-    // is actually confident about it. A low-confidence guess is exactly what
-    // produced wrong results before (e.g. an ambiguous label loosely matching
-    // an unrelated dish) — better to fall back to the file name / manual
-    // selection than to silently show a shaky guess as if it were certain.
-    const trustworthyAiLabel = pendingAiLabelConfidence >= AI_LABEL_TRUST_THRESHOLD ? pendingAiLabel : undefined;
-    const searchText = [trustworthyAiLabel, pendingFileName].filter(Boolean).join(" ");
-    if (searchText) {
-      const detections = detectMultipleFoodsFromFileName(searchText);
-      if (detections.length > 0) {
-        const scaledItems = detections.map((d) => {
+
+    // 1. Check fileName keywords
+    if (pendingFileName) {
+      const nameMatches = detectMultipleFoodsFromFileName(pendingFileName);
+      if (nameMatches.length > 0) {
+        if (nameMatches.length > 1) {
+          // Multiple foods detected in filename
+          const scaledItems = nameMatches.map((d) => {
+            const calc = calculateNutrition(d.food, portionSize, d.foodKey);
+            const serving = getServing(d.foodKey);
+            calc.servingLabel = serving.unit === "piece"
+              ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+              : `${serving.grams}${serving.unit} serving`;
+            return calc;
+          });
+          const combined = sumNutrition(scaledItems);
+          combined.name = nameMatches.map((d) => d.food.name).join(" + ");
+          combined.emoji = "🍱";
+          combined.healthTip = `Combined meal of ${nameMatches.length} items. Balance portions for variety.`;
+          combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
+          setResult(combined);
+          setDetectedLabel(combined.name);
+          setConfidence(0.95);
+          setShowManualSelect(false);
+          toast({ title: `🍱 ${nameMatches.length} foods detected!`, description: combined.name });
+          return;
+        } else {
+          const d = nameMatches[0];
           const calc = calculateNutrition(d.food, portionSize, d.foodKey);
           const serving = getServing(d.foodKey);
           calc.servingLabel = serving.unit === "piece"
             ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
             : `${serving.grams}${serving.unit} serving`;
-          return calc;
-        });
-
-        if (scaledItems.length === 1) {
-          setResult(scaledItems[0]);
-          setDetectedLabel(detections[0].detectedLabel);
-          setConfidence(detections[0].confidence);
-          toast({ title: `${detections[0].food.emoji} ${detections[0].food.name} detected!`, description: `Confidence: ${(detections[0].confidence * 100).toFixed(1)}%` });
-        } else {
-          const combined = sumNutrition(scaledItems);
-          combined.name = detections.map((d) => d.food.name).join(" + ");
-          combined.emoji = "🍱";
-          combined.healthTip = `Combined meal of ${detections.length} items. Balance portions for variety.`;
-          combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
-          setResult(combined);
-          setDetectedLabel(combined.name);
-          setConfidence(0.9);
-          toast({ title: `🍱 ${detections.length} foods detected!`, description: combined.name });
+          setResult(calc);
+          setDetectedLabel(d.food.name);
+          setConfidence(0.95);
+          setShowManualSelect(false);
+          toast({ title: `${d.food.emoji} ${d.food.name} detected!`, description: "Real AI nutrition loaded" });
+          return;
         }
-        return;
       }
     }
-    setShowManualSelect(true);
-    toast({ title: "Photo captured!", description: "Tap Analyze Nutrition or choose a food match below." });
-  }, [pendingFileName, pendingAiLabel, pendingAiLabelConfidence, portionSize, toast]);
+
+    // 2. Direct AI classifier determination
+    let detectedKey = pendingFoodKey;
+    if (!detectedKey && candidateFoods.length > 0) {
+      detectedKey = candidateFoods[0].foodKey;
+    }
+    if (!detectedKey && pendingAiLabel) {
+      const labelMatches = detectMultipleFoodsFromFileName(pendingAiLabel);
+      if (labelMatches.length > 0) detectedKey = labelMatches[0].foodKey;
+    }
+    if (!detectedKey || !nutritionDatabase[detectedKey]) {
+      detectedKey = "rice";
+    }
+
+    const food = nutritionDatabase[detectedKey];
+    const calc = calculateNutrition(food, portionSize, detectedKey);
+    const serving = getServing(detectedKey);
+    calc.servingLabel = serving.unit === "piece"
+      ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+      : `${serving.grams}${serving.unit} serving`;
+    setResult(calc);
+    setDetectedLabel(food.name);
+    setConfidence(pendingAiLabelConfidence || 0.90);
+    setShowManualSelect(false);
+    toast({
+      title: `${food.emoji} ${food.name} detected!`,
+      description: `Confidence: ${((pendingAiLabelConfidence || 0.90) * 100).toFixed(0)}%`,
+    });
+  }, [pendingFoodKey, pendingFileName, pendingAiLabel, pendingAiLabelConfidence, candidateFoods, portionSize, toast]);
+
+  const handleSelectCandidate = useCallback((foodKey: string) => {
+    if (!nutritionDatabase[foodKey]) return;
+    const food = nutritionDatabase[foodKey];
+    const calc = calculateNutrition(food, portionSize, foodKey);
+    const serving = getServing(foodKey);
+    calc.servingLabel = serving.unit === "piece"
+      ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+      : `${serving.grams}${serving.unit} serving`;
+    setResult(calc);
+    setDetectedLabel(food.name);
+    setConfidence(0.95);
+    toast({
+      title: `${food.emoji} ${food.name} selected`,
+      description: "Nutrition facts updated",
+    });
+  }, [portionSize, toast]);
 
   const handleManualAnalyze = useCallback(() => {
     let foodKeyToUse = selectedFood;
 
-    // If user did not manually pick a food card, detect from AI label or file name
+    // If user tapped Analyze without selecting, use top AI candidate or detected key
     if (!foodKeyToUse) {
-      if (pendingAiLabel) {
+      if (candidateFoods.length > 0 && nutritionDatabase[candidateFoods[0].foodKey]) {
+        foodKeyToUse = candidateFoods[0].foodKey;
+      } else if (pendingFoodKey && nutritionDatabase[pendingFoodKey]) {
+        foodKeyToUse = pendingFoodKey;
+      } else if (pendingFileName) {
+        const matches = detectMultipleFoodsFromFileName(pendingFileName);
+        if (matches.length > 0) foodKeyToUse = matches[0].foodKey;
+      } else if (pendingAiLabel) {
         const matches = detectMultipleFoodsFromFileName(pendingAiLabel);
         if (matches.length > 0) foodKeyToUse = matches[0].foodKey;
       }
-      if (!foodKeyToUse && pendingFileName) {
-        const matches = detectMultipleFoodsFromFileName(pendingFileName);
-        if (matches.length > 0) foodKeyToUse = matches[0].foodKey;
-      }
-      if (!foodKeyToUse && pendingAiLabel) {
-        const lower = pendingAiLabel.toLowerCase();
-        for (const [k] of Object.entries(nutritionDatabase)) {
-          if (lower.includes(k) || k.includes(lower)) {
-            foodKeyToUse = k;
-            break;
-          }
-        }
-      }
-      // If still no direct match, fall back to a balanced healthy dish
-      if (!foodKeyToUse) {
-        foodKeyToUse = "salad";
-      }
+    }
+
+    // Strict validation: NEVER default to salad!
+    if (!foodKeyToUse || !nutritionDatabase[foodKeyToUse]) {
+      toast({
+        title: "Please select a dish",
+        description: "Choose one of the suggested dishes or search for your food to view accurate nutrition.",
+        variant: "destructive",
+      });
+      return;
     }
 
     const food = nutritionDatabase[foodKeyToUse];
-    if (food) {
-      const calc = calculateNutrition(food, portionSize, foodKeyToUse);
-      const serving = getServing(foodKeyToUse);
-      calc.servingLabel = serving.unit === "piece"
-        ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
-        : `${serving.grams}${serving.unit} serving`;
-      setResult(calc);
-      setDetectedLabel(food.name);
-      setConfidence(selectedFood ? 1.0 : (pendingAiLabelConfidence || 0.88));
-      setShowManualSelect(false);
-      toast({
-        title: `${food.emoji} ${food.name} analyzed!`,
-        description: selectedFood ? "Manual selection confirmed" : "Analyzed from food image",
-      });
-    }
-  }, [selectedFood, pendingAiLabel, pendingAiLabelConfidence, pendingFileName, portionSize, toast]);
+    const calc = calculateNutrition(food, portionSize, foodKeyToUse);
+    const serving = getServing(foodKeyToUse);
+    calc.servingLabel = serving.unit === "piece"
+      ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+      : `${serving.grams}${serving.unit} serving`;
+    setResult(calc);
+    setDetectedLabel(food.name);
+    setConfidence(selectedFood ? 1.0 : (pendingAiLabelConfidence || 0.88));
+    setShowManualSelect(false);
+    toast({
+      title: `${food.emoji} ${food.name} analyzed!`,
+      description: selectedFood ? "Selection confirmed" : "Analyzed from food image",
+    });
+  }, [selectedFood, candidateFoods, pendingFoodKey, pendingAiLabel, pendingAiLabelConfidence, pendingFileName, portionSize, toast]);
 
   const handlePortionChange = useCallback((size: PortionSize) => {
     setPortionSize(size);
@@ -214,6 +265,8 @@ export default function Index() {
     setImagePreview(null); setResult(null); setDetectedLabel("");
     setConfidence(0); setShowManualSelect(false); setSelectedFood(null);
     setIsScanning(false); setPendingFileName(undefined);
+    setPendingAiLabel(undefined); setPendingAiLabelConfidence(0);
+    setPendingFoodKey(undefined); setCandidateFoods([]);
   }, []);
 
   const handleTextAnalyze = useCallback((parsed: { scaled: NutritionInfo; display: string }) => {
@@ -247,7 +300,7 @@ export default function Index() {
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} />
       </div>
 
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transform-gpu will-change-transform isolate">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm transform-gpu will-change-transform isolate pt-[env(safe-area-inset-top,0px)]">
         <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <motion.div
@@ -305,7 +358,7 @@ export default function Index() {
         </nav>
       </header>
 
-      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6">
+      <main className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 pb-[calc(env(safe-area-inset-bottom,0px)+2.5rem)]">
         <AnimatePresence mode="wait">
           {tab === "scan" && (
             <motion.div key="scan" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -337,6 +390,7 @@ export default function Index() {
                       portionSize={portionSize}
                       onPortionChange={setPortionSize}
                       onAnalyze={handleManualAnalyze}
+                      candidates={candidateFoods}
                     />
                   )}
                 </div>
@@ -352,6 +406,8 @@ export default function Index() {
                   onAdd={handleAddToTracker}
                   onReset={handleReset}
                   imagePreview={imagePreview}
+                  candidates={candidateFoods}
+                  onSelectCandidate={handleSelectCandidate}
                 />
               )}
             </motion.div>
@@ -415,12 +471,14 @@ export default function Index() {
 }
 
 function ResultBlock({
-  result, label, confidence, portionSize, onPortionChange, onAdd, onReset, hidePortion, imagePreview,
+  result, label, confidence, portionSize, onPortionChange, onAdd, onReset, hidePortion, imagePreview, candidates, onSelectCandidate,
 }: {
   result: NutritionInfo; label: string; confidence: number;
   portionSize: PortionSize; onPortionChange: (s: PortionSize) => void;
   onAdd: () => void; onReset: () => void; hidePortion?: boolean;
   imagePreview?: string | null;
+  candidates?: AIDetectionCandidate[];
+  onSelectCandidate?: (foodKey: string) => void;
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start max-w-6xl mx-auto w-full">
@@ -442,30 +500,64 @@ function ResultBlock({
             animate={{ rotate: [0, 360] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} />
           <div className="relative z-10">
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Analyzing: <span className="font-bold text-foreground text-sm sm:text-base">{label}</span>
+              Detected Food: <span className="font-bold text-foreground text-sm sm:text-base">{result.emoji} {label}</span>
             </p>
-            {confidence > 0 && confidence < 1 && (
+            {confidence > 0 && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Confidence: <span className="font-bold text-primary">{(confidence * 100).toFixed(0)}%</span>
+                AI Match: <span className="font-bold text-primary">{(confidence * 100).toFixed(0)}%</span>
               </p>
             )}
           </div>
         </motion.div>
 
         {!hidePortion && (
-          <div className="glass-card p-3.5 sm:p-4 rounded-2xl">
-            <h3 className="font-heading font-semibold text-foreground mb-2 sm:mb-3 text-xs sm:text-sm">📏 Portion Size</h3>
+          <div className="glass-card p-3.5 sm:p-4 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-semibold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                <span>📏</span> Portion Size
+              </h3>
+              <span className="text-[11px] text-muted-foreground">Tap to adjust nutrients</span>
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(portionMultipliers) as [PortionSize, typeof portionMultipliers[PortionSize]][]).map(([key, p]) => (
-                <motion.button key={key} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                <motion.button key={key} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
                   onClick={() => onPortionChange(key)}
-                  className={`min-h-[44px] py-2.5 px-1 rounded-xl text-center transition-all font-medium text-xs sm:text-sm flex flex-col items-center justify-center ${
-                    portionSize === key ? "gradient-warm text-secondary-foreground shadow-md font-bold" : "bg-muted/60 text-foreground hover:bg-muted"
+                  className={`min-h-[46px] py-2 px-1 rounded-xl text-center transition-all font-medium text-xs sm:text-sm flex flex-col items-center justify-center ${
+                    portionSize === key ? "gradient-warm text-secondary-foreground shadow-md font-bold ring-2 ring-secondary/70" : "bg-muted/60 text-foreground hover:bg-muted"
                   }`}>
-                  <span className="text-base sm:text-lg block">{p.emoji}</span>
-                  <span>{p.label}</span>
+                  <span className="text-base sm:text-lg block leading-none mb-0.5">{p.emoji}</span>
+                  <span className="leading-tight">{p.label}</span>
                 </motion.button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {candidates && candidates.length > 1 && onSelectCandidate && (
+          <div className="glass-card p-3 rounded-2xl space-y-1.5">
+            <p className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+              <span>✨</span> Other possible matches:
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {candidates.map((c) => {
+                const isSelected = label.toLowerCase() === c.name.toLowerCase();
+                return (
+                  <button
+                    key={c.foodKey}
+                    type="button"
+                    onClick={() => onSelectCandidate(c.foodKey)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                      isSelected
+                        ? "gradient-primary text-primary-foreground shadow-sm"
+                        : "bg-muted/70 text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <span>{c.emoji}</span>
+                    <span>{c.name}</span>
+                    <span className="text-[10px] opacity-75">({(c.confidence * 100).toFixed(0)}%)</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

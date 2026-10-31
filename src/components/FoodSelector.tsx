@@ -3,12 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Sparkles, Check, X } from "lucide-react";
 import { nutritionDatabase, foodCategories, portionMultipliers, type PortionSize } from "@/data/nutritionData";
 
+import type { AIDetectionCandidate } from "@/lib/aiFoodDetection";
+
 interface FoodSelectorProps {
   selectedFood: string | null;
   onSelectFood: (food: string | null) => void;
   portionSize: PortionSize;
   onPortionChange: (size: PortionSize) => void;
   onAnalyze: () => void;
+  candidates?: AIDetectionCandidate[];
 }
 
 export default function FoodSelector({
@@ -17,6 +20,7 @@ export default function FoodSelector({
   portionSize,
   onPortionChange,
   onAnalyze,
+  candidates,
 }: FoodSelectorProps) {
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,8 +107,38 @@ export default function FoodSelector({
           )}
         </div>
 
+        {/* AI Suggested Matches */}
+        {candidates && candidates.length > 0 && (
+          <div className="p-2.5 sm:p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
+            <p className="text-[11px] sm:text-xs font-bold text-primary flex items-center gap-1.5">
+              <Sparkles size={13} /> AI Detected Matches:
+            </p>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {candidates.map((c) => {
+                const isChosen = selectedFood === c.foodKey;
+                return (
+                  <button
+                    key={c.foodKey}
+                    type="button"
+                    onClick={() => onSelectFood(c.foodKey)}
+                    className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm ${
+                      isChosen
+                        ? "gradient-primary text-primary-foreground scale-[1.02] shadow-md ring-2 ring-primary/40"
+                        : "bg-background/90 text-foreground hover:bg-muted border border-border"
+                    }`}
+                  >
+                    <span>{c.emoji}</span>
+                    <span>{c.name}</span>
+                    <span className="text-[10px] opacity-80 font-normal">({(c.confidence * 100).toFixed(0)}%)</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <p className="text-[11px] sm:text-xs text-muted-foreground leading-snug">
-          Tap Analyze above to inspect the photo, or tap a specific dish below to customize:
+          Tap a dish suggestion above, tap Analyze, or search below to pick your dish:
         </p>
 
         {/* Search */}

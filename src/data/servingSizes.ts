@@ -34,6 +34,9 @@ export const servingSizes: Record<string, ServingMeta> = {
   pizza: { grams: 110, unit: "piece", pieceLabel: "slice" },
   sandwich: { grams: 130, unit: "piece", pieceLabel: "sandwich" },
   bread: { grams: 30, unit: "piece", pieceLabel: "slice" },
+  omelette: { grams: 80, unit: "piece", pieceLabel: "omelette" },
+  "fish fry": { grams: 100, unit: "piece", pieceLabel: "piece" },
+  "masala dosa": { grams: 120, unit: "piece", pieceLabel: "dosa" },
 
   // ml
   milk: { grams: 240, unit: "ml" },
@@ -48,11 +51,17 @@ export const servingSizes: Record<string, ServingMeta> = {
   rice: { grams: 100, unit: "g" },
   biryani: { grams: 150, unit: "g" },
   chicken: { grams: 100, unit: "g" },
+  "chicken 65": { grams: 120, unit: "g" },
   fish: { grams: 100, unit: "g" },
+  "fish curry": { grams: 150, unit: "g" },
   mutton: { grams: 100, unit: "g" },
   prawns: { grams: 100, unit: "g" },
   paneer: { grams: 100, unit: "g" },
+  "paneer butter masala": { grams: 150, unit: "g" },
   tofu: { grams: 100, unit: "g" },
+  "fried rice": { grams: 150, unit: "g" },
+  noodles: { grams: 150, unit: "g" },
+  "kothu parotta": { grams: 150, unit: "g" },
 };
 
 export function getServing(foodKey: string): ServingMeta {

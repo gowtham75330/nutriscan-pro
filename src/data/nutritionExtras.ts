@@ -47,8 +47,12 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
 
   // Protein
   egg: { fiber: 0, sugar: 0.6, sodium: 62 },
+  omelette: { fiber: 0.4, sugar: 1.1, sodium: 280 },
   chicken: { fiber: 0, sugar: 0, sodium: 82 },
+  "chicken 65": { fiber: 1.2, sugar: 1.0, sodium: 540 },
   fish: { fiber: 0, sugar: 0, sodium: 59 },
+  "fish fry": { fiber: 0.8, sugar: 0.2, sodium: 380 },
+  "fish curry": { fiber: 1.1, sugar: 1.5, sodium: 460 },
   mutton: { fiber: 0, sugar: 0, sodium: 72 },
   prawns: { fiber: 0, sugar: 0, sodium: 111 },
   "soya chunks": { fiber: 13, sugar: 7.3, sodium: 2 },
@@ -77,11 +81,14 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
   kozhukattai: { fiber: 1, sugar: 4, sodium: 60 },
   "lemon rice": { fiber: 0.9, sugar: 0.4, sodium: 320 },
   "curd rice": { fiber: 0.6, sugar: 2.5, sodium: 240 },
+  "masala dosa": { fiber: 2.4, sugar: 1.2, sodium: 340 },
+  "kothu parotta": { fiber: 2.2, sugar: 1.8, sodium: 510 },
 
   // North Indian
   biryani: { fiber: 2.5, sugar: 2, sodium: 620 },
   parotta: { fiber: 1.8, sugar: 1, sodium: 380 },
   "butter chicken": { fiber: 1.2, sugar: 4.8, sodium: 560 },
+  "paneer butter masala": { fiber: 1.8, sugar: 3.5, sodium: 520 },
   "palak paneer": { fiber: 2.8, sugar: 2.5, sodium: 450 },
   chole: { fiber: 6.2, sugar: 3.4, sodium: 480 },
   naan: { fiber: 2, sugar: 3.6, sodium: 380 },
@@ -89,6 +96,8 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
   "aloo gobi": { fiber: 3.1, sugar: 3.2, sodium: 290 },
 
   // Snacks
+  "fried rice": { fiber: 1.5, sugar: 1.2, sodium: 390 },
+  noodles: { fiber: 1.8, sugar: 2.0, sodium: 580 },
   pizza: { fiber: 2.3, sugar: 3.6, sodium: 640 },
   burger: { fiber: 1.6, sugar: 6, sodium: 497 },
   samosa: { fiber: 2.4, sugar: 1.8, sodium: 420 },

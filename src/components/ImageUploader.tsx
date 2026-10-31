@@ -4,8 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { analyzeImageForFood } from "@/lib/aiFoodDetection";
 
+import type { AIDetectionCandidate } from "@/lib/aiFoodDetection";
+
 interface ImageUploaderProps {
-  onImageCaptured: (imageUrl: string, fileName?: string, isFood?: boolean, aiLabel?: string, aiLabelConfidence?: number) => void;
+  onImageCaptured: (
+    imageUrl: string,
+    fileName?: string,
+    isFood?: boolean,
+    aiLabel?: string,
+    aiLabelConfidence?: number,
+    foodKey?: string,
+    candidateFoods?: AIDetectionCandidate[]
+  ) => void;
   imagePreview: string | null;
   onClear: () => void;
 }
@@ -94,8 +104,6 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
   }, [facingMode, startCamera]);
 
   // ── Capture photo from live camera ────────────────────────────────────────
-  // Runs the SAME AI image-content validation used for gallery uploads, so
-  // camera capture behaves identically to gallery/drag-drop on every device.
   const capturePhoto = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || !cameraReady) {
       toast.info("Camera not ready yet. Please wait.");
@@ -107,7 +115,6 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     canvas.height = video.videoHeight || 720;
 
     const ctx = canvas.getContext("2d")!;
-    // Mirror if front camera
     if (facingMode === "user") {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
@@ -120,13 +127,22 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeImageForFood(dataUrl);
+      const result = await analyzeImageForFood(dataUrl, "camera-capture.jpg");
       if (!result.isFood) {
-        setNotFoodMsg("Invalid image. Please upload a valid food image.");
-        toast.error("Not a food image! Please point the camera at food.");
+        const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";
+        setNotFoodMsg(reason);
+        toast.error(reason);
         return;
       }
-      onImageCaptured(dataUrl, "camera-capture.jpg", true, result.topLabel, result.topLabelConfidence);
+      onImageCaptured(
+        dataUrl,
+        "camera-capture.jpg",
+        true,
+        result.topLabel,
+        result.confidence,
+        result.foodKey,
+        result.candidateFoods
+      );
     } catch {
       toast.error("Couldn't analyze the photo. Please try again.");
     } finally {
@@ -134,15 +150,11 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     }
   }, [cameraReady, facingMode, onImageCaptured, stopCamera]);
 
-  // ── Handle file upload with REAL AI image-content food validation ─────────
-  // This analyzes the actual pixels of the image (not the file name), so it
-  // works identically for gallery uploads on laptop and mobile, regardless
-  // of how generic or auto-generated the file name is (e.g. IMG_0001.jpg).
+  // ── Handle file upload with strict AI image validation ───────────────────
   const processFile = useCallback(async (file: File) => {
     setNotFoodMsg(null);
     const fileName = file.name;
 
-    // Read the file into a data URL for preview/display purposes.
     const dataUrl: string = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (ev) => resolve(ev.target?.result as string);
@@ -157,16 +169,24 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
 
     setIsAnalyzing(true);
     try {
-      const result = await analyzeImageForFood(dataUrl);
+      const result = await analyzeImageForFood(dataUrl, fileName);
 
       if (!result.isFood) {
-        // Show rejection message — do NOT show food selector
-        setNotFoodMsg("Invalid image. Please upload a valid food image.");
-        toast.error("Not a food image! Please upload a food photo.");
+        const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";
+        setNotFoodMsg(reason);
+        toast.error(reason);
         return;
       }
 
-      onImageCaptured(dataUrl, fileName, true, result.topLabel, result.topLabelConfidence);
+      onImageCaptured(
+        dataUrl,
+        fileName,
+        true,
+        result.topLabel,
+        result.confidence,
+        result.foodKey,
+        result.candidateFoods
+      );
       setNotFoodMsg(null);
     } catch {
       toast.error("Couldn't analyze the image. Please try again.");
@@ -392,20 +412,35 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
             initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
-            className="rounded-2xl border-2 border-destructive/40 bg-destructive/10 p-4 text-center space-y-2.5"
+            className="rounded-2xl border-2 border-destructive/50 bg-destructive/10 p-4 sm:p-5 text-center space-y-3 shadow-md"
           >
-            <p className="text-3xl sm:text-4xl">🚫</p>
-            <p className="font-bold text-destructive text-sm sm:text-base">{notFoodMsg}</p>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Our AI analyzes the actual photo content — please provide a clear, well-lit picture of a food dish.
-            </p>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => { setNotFoodMsg(null); fileInputRef.current?.click(); }}
-              className="rounded-xl gradient-primary text-primary-foreground px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md"
-            >
-              Try Again with Food Image
-            </motion.button>
+            <div className="w-12 h-12 rounded-full bg-destructive/20 text-destructive flex items-center justify-center mx-auto text-2xl font-bold">
+              ⚠️
+            </div>
+            <div className="space-y-1">
+              <p className="font-heading font-bold text-destructive text-sm sm:text-base">
+                {notFoodMsg}
+              </p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                தயவுசெய்து சரியான உணவுப் படத்தை உள்ளிடவும் (Please enter a valid food image). Non-food photos cannot be analyzed.
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 pt-1">
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { setNotFoodMsg(null); fileInputRef.current?.click(); }}
+                className="rounded-xl gradient-primary text-primary-foreground px-4 py-2 text-xs sm:text-sm font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Image size={15} /> Upload Food Image
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { setNotFoodMsg(null); startCamera("environment"); }}
+                className="rounded-xl glass-card text-foreground px-4 py-2 text-xs sm:text-sm font-bold shadow-md flex items-center gap-1.5 hover:bg-muted"
+              >
+                <Camera size={15} /> Take Photo
+              </motion.button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -414,7 +449,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
       {/* ── GALLERY + CAMERA BUTTONS ── */}
-      {!imagePreview && !cameraActive && !notFoodMsg && !isAnalyzing && (
+      {!imagePreview && !cameraActive && !isAnalyzing && (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
           <motion.button
             initial={{ opacity: 0 }}

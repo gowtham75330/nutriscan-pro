@@ -1,7 +1,7 @@
 /**
  * NutriScan Progressive Web App - Service Worker v3
  * ─────────────────────────────────────────────────────────────────────────────
- * Version: nutriscan-v3
+ * Version: nutriscan-v4
  * Strategy:
  *   - Navigation (HTML): Network-First, cache fallback only when offline.
  *   - Hashed static assets (/assets/): Cache-First (safe — Vite content-hashes filenames).
@@ -12,7 +12,7 @@
  * On activate: Delete ALL previous nutriscan-* caches, then clients.claim().
  */
 
-const SW_VERSION = 'nutriscan-v3';
+const SW_VERSION = 'nutriscan-v4';
 const CACHE_NAME = `nutriscan-cache-${SW_VERSION}`;
 
 /** URLs to precache on install (app shell only). */

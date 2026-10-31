@@ -70,19 +70,71 @@ export function healthScore(n: NutritionInfo): { score: number; label: string; c
   return { score, label, color };
 }
 
-/** Lookup a food by free text using the filename mapping table. */
+/** Lookup a food by free text using database and mapping table with smart normalization and plural stemming. */
 export function findFoodByText(text: string): string | null {
   const q = text.toLowerCase().trim();
   if (!q) return null;
+
+  // Direct database match
   if (nutritionDatabase[q]) return q;
-  // direct keyword
+  // Direct mapping match
   if (fileNameFoodMapping[q]) return fileNameFoodMapping[q];
-  // longest matching keyword first
+
+  // Plural stemming (e.g. "apples" -> "apple", "bananas" -> "banana", "eggs" -> "egg")
+  if (q.endsWith("s") && q.length > 3) {
+    const single = q.slice(0, -1);
+    if (nutritionDatabase[single]) return single;
+    if (fileNameFoodMapping[single]) return fileNameFoodMapping[single];
+  }
+  if (q.endsWith("es") && q.length > 4) {
+    const single = q.slice(0, -2);
+    if (nutritionDatabase[single]) return single;
+    if (fileNameFoodMapping[single]) return fileNameFoodMapping[single];
+  }
+
+  // Normalized with clean spaces
+  const normalized = q.replace(/[^a-z0-9]+/g, " ").trim();
+  if (nutritionDatabase[normalized]) return normalized;
+  if (fileNameFoodMapping[normalized]) return fileNameFoodMapping[normalized];
+
+  // Check normalized plurals
+  if (normalized.endsWith("s") && normalized.length > 3) {
+    const single = normalized.slice(0, -1);
+    if (nutritionDatabase[single]) return single;
+    if (fileNameFoodMapping[single]) return fileNameFoodMapping[single];
+  }
+
+  // Compressed no-space match (e.g. "fishfry" matches "fish fry")
+  const noSpace = q.replace(/[^a-z0-9]/g, "");
+  for (const [k, v] of Object.entries(fileNameFoodMapping)) {
+    if (k.replace(/\s+/g, "") === noSpace) return v;
+  }
+  for (const dbKey of Object.keys(nutritionDatabase)) {
+    if (dbKey.replace(/\s+/g, "") === noSpace) return dbKey;
+  }
+
+  // Longest matching keyword first
   const keys = Object.keys(fileNameFoodMapping).sort((a, b) => b.length - a.length);
   for (const k of keys) {
-    if (q.includes(k)) return fileNameFoodMapping[k];
+    if (q.includes(k) || normalized.includes(k)) return fileNameFoodMapping[k];
   }
+
+  // Database food name match
+  for (const [dbKey, food] of Object.entries(nutritionDatabase)) {
+    const fName = food.name.toLowerCase();
+    if (fName === q || fName.includes(q) || q.includes(fName)) return dbKey;
+  }
+
   return null;
+}
+
+export interface ParsedItem {
+  foodKey: string;
+  food: NutritionInfo;
+  scaled: NutritionInfo;
+  quantity: number;
+  unit: "g" | "ml" | "piece";
+  display: string;
 }
 
 export interface ParsedInput {
@@ -92,20 +144,42 @@ export interface ParsedInput {
   quantity: number;
   unit: "g" | "ml" | "piece";
   display: string;
+  items?: ParsedItem[];
 }
 
 /**
- * Parse free text like "2 idli", "chicken biryani 250g", "150 ml milk".
- * Returns scaled nutrition or null if no food recognised.
+ * Parses a single food phrase with optional quantity,
+ * e.g. "2 apple", "250g biryani", "1 cup milk", "2 fish fry", "apple".
  */
-export function parseQuantityInput(input: string): ParsedInput | null {
-  const text = input.toLowerCase().trim();
+export function parseSingleFoodFragment(fragment: string): ParsedItem | null {
+  const text = fragment.toLowerCase().trim();
   if (!text) return null;
 
-  // Pull a number + unit if present.
-  const qtyMatch = text.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|cup|cups|piece|pieces|pc|pcs|nos|no)?/i);
-  let qty = qtyMatch ? parseFloat(qtyMatch[1]) : 1;
-  let rawUnit = (qtyMatch?.[2] ?? "").toLowerCase();
+  // 1. Match leading quantity, e.g. "2 apple", "250g chicken", "1 cup rice"
+  const startMatch = text.match(/^(\d+(?:\.\d+)?)\s*(kg|g|ml|l|cups?|pieces?|pcs?|nos?|no)?\s*(.*)$/i);
+  // 2. Match trailing quantity, e.g. "chicken 250g", "apple 2"
+  const endMatch = text.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*(kg|g|ml|l|cups?|pieces?|pcs?|nos?|no)?$/i);
+
+  let qty = 1;
+  let rawUnit = "";
+  let foodText = text;
+
+  if (startMatch && startMatch[1] && startMatch[3]) {
+    qty = parseFloat(startMatch[1]);
+    rawUnit = (startMatch[2] ?? "").toLowerCase();
+    foodText = startMatch[3].trim();
+  } else if (endMatch && endMatch[2] && endMatch[1] && isNaN(Number(endMatch[1]))) {
+    qty = parseFloat(endMatch[2]);
+    rawUnit = (endMatch[3] ?? "").toLowerCase();
+    foodText = endMatch[1].trim();
+  } else {
+    const anyNumMatch = text.match(/(\d+(?:\.\d+)?)\s*(kg|g|ml|l|cups?|pieces?|pcs?|nos?|no)?/i);
+    if (anyNumMatch) {
+      qty = parseFloat(anyNumMatch[1]);
+      rawUnit = (anyNumMatch[2] ?? "").toLowerCase();
+      foodText = text.replace(anyNumMatch[0], "").trim();
+    }
+  }
 
   // Normalise unit synonyms.
   if (rawUnit === "kg") { qty *= 1000; rawUnit = "g"; }
@@ -113,8 +187,6 @@ export function parseQuantityInput(input: string): ParsedInput | null {
   if (["cup", "cups"].includes(rawUnit)) { qty *= 240; rawUnit = "ml"; }
   if (["piece", "pieces", "pc", "pcs", "nos", "no"].includes(rawUnit)) rawUnit = "piece";
 
-  // Strip the matched quantity from text to identify the food.
-  const foodText = text.replace(qtyMatch?.[0] ?? "", "").trim();
   const foodKey = findFoodByText(foodText) || findFoodByText(text);
   if (!foodKey) return null;
 
@@ -123,20 +195,85 @@ export function parseQuantityInput(input: string): ParsedInput | null {
   const unit: "g" | "ml" | "piece" = (rawUnit as "g" | "ml" | "piece") || serving.unit;
 
   let factor = 1;
-  if (unit === "piece") {
+  // If the user did not explicitly provide "g" or "ml", treat qty as count of servings/pieces
+  if (!rawUnit || unit === "piece") {
     factor = qty;
   } else {
-    // grams or ml — scale by weight ratio (1 ml ≈ 1 g for our purposes)
+    // Explicit gram or ml amount provided (e.g. 250g, 150ml)
     factor = qty / serving.grams;
   }
 
   const scaled = scaleNutrition(food, factor, foodKey);
-  const display = unit === "piece"
-    ? `${qty} ${serving.pieceLabel ?? "piece"}${qty > 1 ? "s" : ""} of ${food.name}`
-    : `${qty}${unit} of ${food.name}`;
+  const display = unit === "piece" || !rawUnit
+    ? `${qty} ${food.name}`
+    : `${qty}${unit} ${food.name}`;
   scaled.servingLabel = display;
 
   return { foodKey, food, scaled, quantity: qty, unit, display };
+}
+
+/**
+ * Parse single or MULTIPLE foods with quantities, e.g.:
+ * - "2 apple and 2 banana"
+ * - "2 idli, 1 vada and 1 cup tea"
+ * - "1 cup rice with dal 100g and 2 fish fry"
+ * Accurately sums calories, macros, vitamins, minerals, fiber, sugar, sodium!
+ */
+export function parseQuantityInput(input: string): ParsedInput | null {
+  const text = input.trim();
+  if (!text) return null;
+
+  // Split on delimiters: "and", "with", "plus", ",", "&", "+"
+  const delimiterRegex = /\s*(?:,|\band\b|\bwith\b|\bplus\b|\&|\+)\s*/i;
+  let rawFragments = text.split(delimiterRegex).map((s) => s.trim()).filter(Boolean);
+
+  // If no explicit delimiter, check for multiple number tokens, e.g. "2 apple 2 banana"
+  if (rawFragments.length <= 1) {
+    const multiMatch = text.match(/\b\d+(?:\.\d+)?\s*(?:kg|g|ml|l|cups?|pieces?|pcs?|nos?|no)?\s+[a-zA-Z\s]+?(?=\s+\d+|$)/gi);
+    if (multiMatch && multiMatch.length > 1) {
+      rawFragments = multiMatch.map((s) => s.trim());
+    }
+  }
+
+  const parsedItems: ParsedItem[] = [];
+  for (const frag of rawFragments) {
+    const item = parseSingleFoodFragment(frag);
+    if (item) {
+      parsedItems.push(item);
+    }
+  }
+
+  if (parsedItems.length === 0) {
+    const single = parseSingleFoodFragment(text);
+    return single ? { ...single, items: [single] } : null;
+  }
+
+  if (parsedItems.length === 1) {
+    return { ...parsedItems[0], items: parsedItems };
+  }
+
+  // Multiple foods parsed — sum all nutrients accurately!
+  const scaledList = parsedItems.map((p) => p.scaled);
+  const combined = sumNutrition(scaledList);
+
+  const display = parsedItems.map((p) => p.display).join(" + ");
+  const names = parsedItems.map((p) => p.food.name).join(" + ");
+  const emojis = Array.from(new Set(parsedItems.map((p) => p.food.emoji))).join(" ");
+
+  combined.name = names;
+  combined.emoji = emojis || "🍱";
+  combined.healthTip = `Combined meal of ${parsedItems.length} items (${names}). Nutrient values are summed accurately.`;
+  combined.servingLabel = display;
+
+  return {
+    foodKey: parsedItems[0].foodKey,
+    food: parsedItems[0].food,
+    scaled: combined,
+    quantity: parsedItems.reduce((acc, p) => acc + p.quantity, 0),
+    unit: parsedItems[0].unit,
+    display,
+    items: parsedItems,
+  };
 }
 
 /**
