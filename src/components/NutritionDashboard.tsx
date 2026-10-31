@@ -330,10 +330,14 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, delay: 0.3 }}
         >
-          {nutrition.calories}
+          {nutrition.calories} <span className="text-2xl font-semibold text-primary">kcal</span>
         </motion.p>
-        <p className="text-muted-foreground text-sm mt-1">
-          {t.caloriesPerServing[lang]}
+        <p className="text-muted-foreground text-sm mt-1 flex items-center justify-center gap-1.5 flex-wrap">
+          <span>{t.caloriesPerServing[lang]}</span>
+          <span>·</span>
+          <span className="font-semibold text-foreground/90 bg-muted/60 px-2 py-0.5 rounded-full text-xs">
+            ⚡ {Math.round(nutrition.calories * 4.184)} kJ (Energy)
+          </span>
         </p>
       </motion.div>
 

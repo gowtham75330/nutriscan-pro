@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Camera, Upload, X, Image, FlipHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { analyzeImageForFood } from "@/lib/aiFoodDetection";
+import { detectFoodWithGemini } from "@/lib/geminiFoodDetection";
 
 import type { AIDetectionCandidate } from "@/lib/aiFoodDetection";
 
@@ -127,7 +127,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeImageForFood(dataUrl, "camera-capture.jpg");
+      const result = await detectFoodWithGemini(dataUrl, "camera-capture.jpg");
       if (!result.isFood) {
         const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";
         setNotFoodMsg(reason);
@@ -169,7 +169,7 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
 
     setIsAnalyzing(true);
     try {
-      const result = await analyzeImageForFood(dataUrl, fileName);
+      const result = await detectFoodWithGemini(dataUrl, fileName);
 
       if (!result.isFood) {
         const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";

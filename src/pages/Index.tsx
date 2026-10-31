@@ -77,11 +77,25 @@ export default function Index() {
     foodKey?: string,
     candidates?: AIDetectionCandidate[]
   ) => {
-    if (isFood === false) return;
-    setImagePreview(url);
+    // 1. Fully reset previous predictions and results
     setResult(null);
+    setDetectedLabel("");
+    setConfidence(0);
     setShowManualSelect(false);
     setSelectedFood(null);
+
+    if (isFood === false) {
+      setImagePreview(null);
+      setPendingFileName(undefined);
+      setPendingAiLabel(undefined);
+      setPendingAiLabelConfidence(0);
+      setPendingFoodKey(undefined);
+      setCandidateFoods([]);
+      setIsScanning(false);
+      return;
+    }
+
+    setImagePreview(url);
     setPendingFileName(fileName);
     setPendingAiLabel(aiLabel);
     setPendingAiLabelConfidence(aiLabelConfidence ?? 0);
@@ -533,31 +547,27 @@ function ResultBlock({
           </div>
         )}
 
-        {candidates && candidates.length > 1 && onSelectCandidate && (
-          <div className="glass-card p-3 rounded-2xl space-y-1.5">
-            <p className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+        {candidates && candidates.filter((c) => c.name.toLowerCase() !== label.toLowerCase()).length > 0 && onSelectCandidate && (
+          <div className="glass-card p-3.5 rounded-2xl space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
               <span>✨</span> Other possible matches:
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {candidates.map((c) => {
-                const isSelected = label.toLowerCase() === c.name.toLowerCase();
-                return (
+            <div className="flex flex-wrap gap-2">
+              {candidates
+                .filter((c) => c.name.toLowerCase() !== label.toLowerCase())
+                .slice(0, 3)
+                .map((c) => (
                   <button
                     key={c.foodKey}
                     type="button"
                     onClick={() => onSelectCandidate(c.foodKey)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
-                      isSelected
-                        ? "gradient-primary text-primary-foreground shadow-sm"
-                        : "bg-muted/70 text-foreground hover:bg-muted"
-                    }`}
+                    className="min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all bg-muted/80 text-foreground hover:bg-muted border border-border/60 shadow-sm"
                   >
                     <span>{c.emoji}</span>
                     <span>{c.name}</span>
-                    <span className="text-[10px] opacity-75">({(c.confidence * 100).toFixed(0)}%)</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">({(c.confidence * 100).toFixed(0)}%)</span>
                   </button>
-                );
-              })}
+                ))}
             </div>
           </div>
         )}

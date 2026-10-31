@@ -49,6 +49,9 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
   egg: { fiber: 0, sugar: 0.6, sodium: 62 },
   omelette: { fiber: 0.4, sugar: 1.1, sodium: 280 },
   chicken: { fiber: 0, sugar: 0, sodium: 82 },
+  "roasted chicken": { fiber: 0, sugar: 0, sodium: 82 },
+  "grilled chicken": { fiber: 0, sugar: 0, sodium: 75 },
+  steak: { fiber: 0, sugar: 0, sodium: 60 },
   "chicken 65": { fiber: 1.2, sugar: 1.0, sodium: 540 },
   fish: { fiber: 0, sugar: 0, sodium: 59 },
   "fish fry": { fiber: 0.8, sugar: 0.2, sodium: 380 },
@@ -86,6 +89,7 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
 
   // North Indian
   biryani: { fiber: 2.5, sugar: 2, sodium: 620 },
+  "chicken biryani": { fiber: 2.5, sugar: 1.5, sodium: 580 },
   parotta: { fiber: 1.8, sugar: 1, sodium: 380 },
   "butter chicken": { fiber: 1.2, sugar: 4.8, sodium: 560 },
   "paneer butter masala": { fiber: 1.8, sugar: 3.5, sodium: 520 },
@@ -109,6 +113,7 @@ export const nutritionExtras: Record<string, ExtraNutrients> = {
   "ice cream": { fiber: 0.7, sugar: 21, sodium: 80 },
   chocolate: { fiber: 7, sugar: 48, sodium: 24 },
   salad: { fiber: 2.6, sugar: 3.1, sodium: 145 },
+  soup: { fiber: 1.5, sugar: 2.0, sodium: 420 },
 
   // Drinks
   tea: { fiber: 0, sugar: 8, sodium: 8 },

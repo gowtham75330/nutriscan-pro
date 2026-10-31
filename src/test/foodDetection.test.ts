@@ -108,3 +108,64 @@ describe("Food Name Entry and Quantity Analyzer", () => {
     expect(parsed?.scaled.calories).toBe(322);
   });
 });
+
+import { mapToNutritionKey } from "@/lib/geminiFoodDetection";
+import { calculateNutrition, nutritionDatabase } from "@/data/nutritionData";
+
+describe("Strict Multi-Dish Recognition and Nutrition Requirements", () => {
+  it("accurately maps 'Roasted Chicken' to 'roasted chicken' (NEVER Idli)", () => {
+    const key = mapToNutritionKey("Roasted Chicken");
+    expect(key).toBe("roasted chicken");
+    expect(key).not.toBe("idli");
+    const food = nutritionDatabase[key];
+    expect(food.name).toBe("Roasted Chicken");
+    expect(food.protein).toBeGreaterThanOrEqual(25);
+  });
+
+  it("accurately maps 'Idli' to 'idli'", () => {
+    const key = mapToNutritionKey("Steamed Idli");
+    expect(key).toBe("idli");
+  });
+
+  it("accurately maps 'Dosa' to 'dosa'", () => {
+    const key = mapToNutritionKey("Crispy Masala Dosa");
+    expect(key).toBe("masala dosa");
+  });
+
+  it("accurately maps 'Rice' to 'rice'", () => {
+    const key = mapToNutritionKey("Steamed White Rice");
+    expect(key).toBe("rice");
+  });
+
+  it("accurately maps 'Pizza' to 'pizza'", () => {
+    const key = mapToNutritionKey("Pepperoni Pizza");
+    expect(key).toBe("pizza");
+  });
+
+  it("accurately maps 'Burger' to 'burger'", () => {
+    const key = mapToNutritionKey("Cheeseburger");
+    expect(key).toBe("burger");
+  });
+
+  it("calculates accurate nutrition and energy (kJ) across Small, Medium, Large portions", () => {
+    const chicken = nutritionDatabase["roasted chicken"];
+    expect(chicken).toBeDefined();
+
+    // Medium portion (1.0x)
+    const med = calculateNutrition(chicken, "medium", "roasted chicken");
+    expect(med.calories).toBe(239);
+    expect(med.protein).toBe(27);
+    expect(med.fat).toBe(13.5);
+    const medKj = Math.round(med.calories * 4.184);
+    expect(medKj).toBe(1000);
+
+    // Small portion (0.8x)
+    const small = calculateNutrition(chicken, "small", "roasted chicken");
+    expect(small.calories).toBe(Math.round(239 * 0.8));
+    expect(small.protein).toBe(+(27 * 0.8).toFixed(1));
+
+    // Large portion (1.5x)
+    const large = calculateNutrition(chicken, "large", "roasted chicken");
+    expect(large.calories).toBe(Math.round(239 * 1.5));
+  });
+});

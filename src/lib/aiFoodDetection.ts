@@ -429,9 +429,21 @@ function classifyDish(
     if (l.includes("sandwich")) addScore("sandwich", prob * 3.5);
     if (l.includes("pasta") || l.includes("carbonara")) addScore("pasta", prob * 2.0);
     if (l.includes("french loaf") || l.includes("bagel") || l.includes("pretzel")) addScore("bread", prob * 2.5);
-    if (l.includes("rotisserie")) {
-      addScore("chicken", prob * 3.0);
-      addScore("chicken 65", prob * 2.0);
+    if (
+      l.includes("rotisserie") ||
+      l.includes("potpie") ||
+      l.includes("pot pie") ||
+      l.includes("meat loaf") ||
+      l.includes("meatloaf") ||
+      l.includes("poultry") ||
+      l.includes("rooster") ||
+      l.includes("hen") ||
+      l.includes("chicken")
+    ) {
+      addScore("roasted chicken", prob * 4.5);
+      addScore("chicken", prob * 4.0);
+      addScore("grilled chicken", prob * 3.5);
+      addScore("chicken 65", prob * 2.5);
     }
 
     // Seafood / Fish classes in ImageNet
@@ -532,8 +544,35 @@ function classifyDish(
     addScore("samosa", 1.8);
   }
 
-  // Visual Signature 4: IDLI / WHITE RICE
-  if (visual.whiteRatio > 0.22 && visual.greenLeafyRatio < 0.10) {
+  // Visual Signature 4: ROASTED CHICKEN / POULTRY / MEAT
+  // Characteristics: golden-amber roasted skin, roasted brown crust, serving platter/tray
+  const hasRoastedMeatVisuals =
+    visual.goldenBrownRatio > 0.12 &&
+    (visual.darkFriedCrustRatio > 0.02 || visual.redOrangeRatio > 0.03);
+
+  const modelHintsPoultryOrPlatter = topLabels.some(
+    (l) =>
+      l.includes("rotisserie") ||
+      l.includes("potpie") ||
+      l.includes("meat loaf") ||
+      l.includes("meatloaf") ||
+      l.includes("tray") ||
+      l.includes("platter") ||
+      l.includes("plate") ||
+      l.includes("dishrag") ||
+      l.includes("frying pan")
+  );
+
+  if (hasRoastedMeatVisuals && modelHintsPoultryOrPlatter) {
+    addScore("roasted chicken", 5.2);
+    addScore("chicken", 4.2);
+    addScore("grilled chicken", 3.8);
+  }
+
+  // Visual Signature 5: IDLI / WHITE RICE
+  // Strictly requires clean white food with NO roasted brown/fried skin!
+  const hasNoRoastedBrowning = visual.goldenBrownRatio < 0.10 && visual.darkFriedCrustRatio < 0.03;
+  if (visual.whiteRatio > 0.26 && visual.greenLeafyRatio < 0.10 && hasNoRoastedBrowning) {
     addScore("idli", 3.2);
     addScore("rice", 2.2);
     addScore("curd rice", 1.8);

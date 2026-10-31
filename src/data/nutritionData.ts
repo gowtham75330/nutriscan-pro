@@ -74,6 +74,9 @@ export const nutritionDatabase: Record<string, NutritionInfo> = {
   egg: { name: "Egg", emoji: "🥚", category: "protein", calories: 78, protein: 6, carbs: 0.6, fat: 5, goodFat: 3, badFat: 2, vitamins: ["A", "B12", "D", "E"], minerals: ["Selenium", "Zinc", "Iron"], healthTip: "Complete protein with all essential amino acids. Boiled is healthier than fried." },
   omelette: { name: "Omelette", emoji: "🍳", category: "protein", calories: 154, protein: 11, carbs: 1.5, fat: 12, goodFat: 6, badFat: 6, vitamins: ["A", "B12", "D", "E"], minerals: ["Selenium", "Iron", "Zinc"], healthTip: "High protein egg dish. Adding onions, tomatoes, and spinach boosts nutrients." },
   chicken: { name: "Chicken", emoji: "🍗", category: "protein", calories: 239, protein: 27, carbs: 0, fat: 14, goodFat: 8, badFat: 6, vitamins: ["B3", "B6", "B12"], minerals: ["Selenium", "Phosphorus", "Zinc"], healthTip: "Lean protein source. Grilled or baked is healthier than fried." },
+  "roasted chicken": { name: "Roasted Chicken", emoji: "🍗", category: "protein", calories: 239, protein: 27, carbs: 0, fat: 13.5, goodFat: 9, badFat: 4.5, vitamins: ["B3", "B6", "B12", "D"], minerals: ["Selenium", "Phosphorus", "Zinc", "Iron"], healthTip: "Juicy high-protein roasted poultry. Roasting preserves natural juices with minimal added fat." },
+  "grilled chicken": { name: "Grilled Chicken", emoji: "🍗", category: "protein", calories: 220, protein: 28, carbs: 0, fat: 11, goodFat: 7.5, badFat: 3.5, vitamins: ["B3", "B6", "B12"], minerals: ["Selenium", "Phosphorus", "Potassium"], healthTip: "Clean lean protein option. Excellent for fitness, muscle recovery, and weight loss." },
+  steak: { name: "Steak", emoji: "🥩", category: "protein", calories: 271, protein: 26, carbs: 0, fat: 18, goodFat: 7.5, badFat: 10.5, vitamins: ["B12", "B3", "B6"], minerals: ["Iron", "Zinc", "Selenium"], healthTip: "Rich in bioavailable iron and protein. Moderate portion recommended due to saturated fat." },
   "chicken 65": { name: "Chicken 65 / Fry", emoji: "🍗", category: "protein", calories: 280, protein: 25, carbs: 9, fat: 16, goodFat: 8, badFat: 8, vitamins: ["B6", "B12", "C"], minerals: ["Iron", "Zinc", "Phosphorus"], healthTip: "Spicy South Indian fried chicken. High in protein. Enjoy in moderation." },
   fish: { name: "Fish", emoji: "🐟", category: "protein", calories: 206, protein: 22, carbs: 0, fat: 12, goodFat: 10, badFat: 2, vitamins: ["D", "B12", "B3"], minerals: ["Selenium", "Phosphorus", "Iodine"], healthTip: "Excellent omega-3 source. Supports heart and brain health." },
   "fish fry": { name: "Fish Fry", emoji: "🐟", category: "protein", calories: 245, protein: 24, carbs: 4.5, fat: 14.5, goodFat: 9.5, badFat: 5, vitamins: ["D", "B12", "B3", "A"], minerals: ["Selenium", "Phosphorus", "Iodine", "Iron"], healthTip: "Rich in protein and heart-healthy Omega-3 fatty acids. Pan-frying with less oil is healthier than deep frying." },
@@ -111,6 +114,7 @@ export const nutritionDatabase: Record<string, NutritionInfo> = {
 
   // === NORTH INDIAN ===
   biryani: { name: "Biryani", emoji: "🍛", category: "north-indian", calories: 320, protein: 15, carbs: 40, fat: 12, goodFat: 5, badFat: 7, vitamins: ["B12", "A", "D"], minerals: ["Iron", "Zinc", "Calcium"], healthTip: "Moderate portion recommended. Rich in spices with anti-inflammatory properties." },
+  "chicken biryani": { name: "Chicken Biryani", emoji: "🍛", category: "north-indian", calories: 340, protein: 18, carbs: 42, fat: 12, goodFat: 5, badFat: 7, vitamins: ["B12", "B6", "A"], minerals: ["Iron", "Zinc", "Phosphorus"], healthTip: "Aromatic spiced basmati rice layered with marinated tender chicken and fragrant herbs." },
   parotta: { name: "Parotta", emoji: "🫓", category: "north-indian", calories: 260, protein: 5, carbs: 35, fat: 12, goodFat: 4, badFat: 8, vitamins: ["B1", "B3"], minerals: ["Iron", "Calcium"], healthTip: "Made with refined flour and oil. Enjoy in moderation." },
   "butter chicken": { name: "Butter Chicken", emoji: "🍛", category: "north-indian", calories: 240, protein: 18, carbs: 8, fat: 15, goodFat: 6, badFat: 9, vitamins: ["A", "B12", "B6", "D"], minerals: ["Iron", "Zinc", "Phosphorus"], healthTip: "Rich and creamy. High in protein but also fat. Pair with roti over naan." },
   "paneer butter masala": { name: "Paneer Butter Masala", emoji: "🍛", category: "north-indian", calories: 295, protein: 12, carbs: 10, fat: 23, goodFat: 9, badFat: 14, vitamins: ["A", "B12", "C"], minerals: ["Calcium", "Phosphorus"], healthTip: "Rich paneer curry. High in calcium and protein. Pair with whole wheat roti." },
@@ -134,6 +138,7 @@ export const nutritionDatabase: Record<string, NutritionInfo> = {
   "ice cream": { name: "Ice Cream", emoji: "🍦", category: "snacks", calories: 207, protein: 3.5, carbs: 24, fat: 11, goodFat: 3, badFat: 8, vitamins: ["A", "B2", "D"], minerals: ["Calcium", "Phosphorus"], healthTip: "High in sugar and fat. Choose fruit-based sorbets for fewer calories." },
   "chocolate": { name: "Chocolate", emoji: "🍫", category: "snacks", calories: 546, protein: 5, carbs: 60, fat: 31, goodFat: 12, badFat: 19, vitamins: ["B2", "B3", "E"], minerals: ["Iron", "Magnesium", "Copper"], healthTip: "Dark chocolate (70%+) has antioxidants. Milk chocolate is high in sugar." },
   salad: { name: "Salad", emoji: "🥗", category: "snacks", calories: 65, protein: 3, carbs: 8, fat: 2, goodFat: 1.5, badFat: 0.5, vitamins: ["A", "C", "K", "E"], minerals: ["Potassium", "Iron", "Folate"], healthTip: "Packed with vitamins and fiber. Keep dressing light for best benefits." },
+  soup: { name: "Soup", emoji: "🥣", category: "snacks", calories: 75, protein: 4, carbs: 10, fat: 2, goodFat: 1, badFat: 1, vitamins: ["A", "C", "B6"], minerals: ["Potassium", "Sodium", "Iron"], healthTip: "Warm hydrating broth rich in micronutrients and easy to digest." },
 
   // === DRINKS ===
   tea: { name: "Tea", emoji: "🍵", category: "drinks", calories: 50, protein: 0.5, carbs: 10, fat: 1, goodFat: 0.5, badFat: 0.5, vitamins: ["B2", "C"], minerals: ["Manganese", "Potassium"], healthTip: "Contains antioxidants. Green tea has more benefits. Limit sugar." },
@@ -167,8 +172,10 @@ export const fileNameFoodMapping: Record<string, string> = {
   // Protein
   "egg": "egg", "boiled egg": "egg",
   "omelette": "omelette", "omelet": "omelette", "omlet": "omelette", "bullseye": "omelette", "half boil": "omelette",
-  "chicken": "chicken", "chicken curry": "chicken", "grilled chicken": "chicken", "tandoori chicken": "chicken",
-  "rotisserie": "chicken", "roast chicken": "chicken", "roasted chicken": "chicken",
+  "chicken": "chicken", "chicken curry": "chicken", "tandoori chicken": "chicken",
+  "grilled chicken": "grilled chicken", "grilledchicken": "grilled chicken",
+  "rotisserie": "roasted chicken", "roast chicken": "roasted chicken", "roasted chicken": "roasted chicken", "roastedchicken": "roasted chicken",
+  "steak": "steak", "beef steak": "steak",
   "chicken 65": "chicken 65", "chicken fry": "chicken 65", "fried chicken": "chicken 65",
   "fish": "fish",
   "fish fry": "fish fry", "fishfry": "fish fry", "fried fish": "fish fry", "meen varuval": "fish fry", "meen fry": "fish fry", "fish roast": "fish fry", "tawa fish": "fish fry", "fish steak": "fish fry",
@@ -203,7 +210,8 @@ export const fileNameFoodMapping: Record<string, string> = {
   "curd rice": "curd rice", "thayir sadam": "curd rice",
   "kothu parotta": "kothu parotta", "kothu paratha": "kothu parotta", "kothu": "kothu parotta",
   // North Indian
-  "biryani": "biryani", "biriyani": "biryani", "briyani": "biryani", "chicken biryani": "biryani", "mutton biryani": "biryani",
+  "chicken biryani": "chicken biryani", "chickenbiryani": "chicken biryani",
+  "biryani": "biryani", "biriyani": "biryani", "briyani": "biryani", "mutton biryani": "biryani",
   "parotta": "parotta", "paratha": "parotta", "porotta": "parotta",
   "butter chicken": "butter chicken", "murgh makhani": "butter chicken",
   "palak paneer": "palak paneer",
@@ -224,6 +232,7 @@ export const fileNameFoodMapping: Record<string, string> = {
   "ice cream": "ice cream", "icecream": "ice cream",
   "chocolate": "chocolate",
   "salad": "salad", "vegetable salad": "salad", "green salad": "salad",
+  "soup": "soup", "hot soup": "soup", "vegetable soup": "soup", "chicken soup": "soup",
   // Drinks
   "tea": "tea", "chai": "tea",
   "coffee": "coffee", "kaapi": "coffee",
