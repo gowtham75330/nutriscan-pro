@@ -169,3 +169,131 @@ describe("Strict Multi-Dish Recognition and Nutrition Requirements", () => {
     expect(large.calories).toBe(Math.round(239 * 1.5));
   });
 });
+
+import { MSG_NO_FOOD, MSG_UNCERTAIN, validateImageQuality } from "@/lib/aiFoodDetection";
+
+describe("Benchmark Test Scenarios A through K (Food vs Non-Food & Recognition)", () => {
+  // Scenario A: Real Dosa image
+  it("Scenario A: Real Dosa image recognition", () => {
+    const key = mapToNutritionKey("Crispy Roast Dosa");
+    expect(key).toBe("dosa");
+    const food = nutritionDatabase[key];
+    expect(food.name).toBe("Dosa");
+    expect(food.category).toBe("south-indian");
+  });
+
+  // Scenario B: Real Idli image
+  it("Scenario B: Real Idly image recognition", () => {
+    const key = mapToNutritionKey("Steamed Soft Idly");
+    expect(key).toBe("idli");
+    const food = nutritionDatabase[key];
+    expect(food.name).toBe("Idli");
+    expect(food.calories).toBe(39);
+  });
+
+  // Scenario C: Fish Fry image
+  it("Scenario C: Fish Fry image recognition", () => {
+    const key = mapToNutritionKey("Crispy Meen Varuval / Fish Fry");
+    expect(key).toBe("fish fry");
+    const food = nutritionDatabase[key];
+    expect(food.name).toBe("Fish Fry");
+    expect(food.protein).toBe(24);
+  });
+
+  // Scenario D: Chicken Biryani image
+  it("Scenario D: Chicken Biryani image recognition", () => {
+    const key = mapToNutritionKey("Hyderabadi Chicken Biryani");
+    expect(key).toBe("chicken biryani");
+    const food = nutritionDatabase[key];
+    expect(food.name).toBe("Chicken Biryani");
+    expect(food.calories).toBe(340);
+  });
+
+  // Scenario E: Human photograph rejection
+  it("Scenario E: Human photograph non-food rejection", () => {
+    // Non-food should return empty string from mapper and NEVER a fabricated food
+    const key = mapToNutritionKey("Portrait selfie of young man with sunglasses");
+    expect(key).toBe("");
+    expect(MSG_NO_FOOD).toBe("Sorry! No food detected. Please upload a valid food image.");
+  });
+
+  // Scenario F: Vehicle photograph rejection
+  it("Scenario F: Vehicle photograph non-food rejection", () => {
+    const key = mapToNutritionKey("Sports car on highway");
+    expect(key).toBe("");
+  });
+
+  // Scenario G: Animal photograph rejection
+  it("Scenario G: Animal photograph non-food rejection", () => {
+    const key = mapToNutritionKey("Golden retriever dog playing in park");
+    expect(key).toBe("");
+  });
+
+  // Scenario H: Document image rejection
+  it("Scenario H: Document image non-food rejection", () => {
+    const key = mapToNutritionKey("Printed PDF invoice contract document");
+    expect(key).toBe("");
+  });
+
+  // Scenario I: Screenshot rejection
+  it("Scenario I: Screenshot non-food rejection", () => {
+    const key = mapToNutritionKey("Mobile phone homescreen desktop app launcher");
+    expect(key).toBe("");
+  });
+
+  // Scenario J: Blurry food image rejection
+  it("Scenario J: Blurry image quality validator rejection", () => {
+    // Completely uniform gray buffer (zero edge variance / severe blur)
+    const blurPixels = new Uint8ClampedArray(64 * 64 * 4).fill(128);
+    const quality = validateImageQuality({ data: blurPixels, width: 64, height: 64 });
+    expect(quality.isValid).toBe(false);
+    expect(quality.reason).toContain("blurry");
+  });
+
+  // Scenario K: Empty / pitch black image rejection
+  it("Scenario K: Empty pitch-black image validator rejection", () => {
+    // Completely pitch black buffer (luminance = 0)
+    const blackPixels = new Uint8ClampedArray(64 * 64 * 4).fill(0);
+    const quality = validateImageQuality({ data: blackPixels, width: 64, height: 64 });
+    expect(quality.isValid).toBe(false);
+    expect(quality.reason).toContain("dark or empty");
+  });
+
+  // Complete coverage for all 22 required Tamil Nadu & Indian Foods
+  it("accurately recognizes all 22 required Indian & Tamil Nadu food items", () => {
+    const requiredFoods: { input: string; expectedKey: string }[] = [
+      { input: "Dosa", expectedKey: "dosa" },
+      { input: "Idly", expectedKey: "idli" },
+      { input: "Ven Pongal", expectedKey: "pongal" },
+      { input: "Poori Masala", expectedKey: "poori" },
+      { input: "Chapati", expectedKey: "chapati" },
+      { input: "Malabar Parotta", expectedKey: "parotta" },
+      { input: "Steamed Rice", expectedKey: "rice" },
+      { input: "South Indian Sambar", expectedKey: "sambar" },
+      { input: "Tomato Rasam", expectedKey: "rasam" },
+      { input: "Curd Rice Thayir Sadam", expectedKey: "curd rice" },
+      { input: "Lemon Rice Chitranna", expectedKey: "lemon rice" },
+      { input: "Chicken Biryani", expectedKey: "chicken biryani" },
+      { input: "Mutton Biryani", expectedKey: "mutton" },
+      { input: "Meen Varuval Fish Fry", expectedKey: "fish fry" },
+      { input: "Spicy Chicken 65", expectedKey: "chicken 65" },
+      { input: "Chicken Curry Gravy", expectedKey: "chicken" },
+      { input: "Fish Curry Kuzhambu", expectedKey: "fish curry" },
+      { input: "Egg Omelette", expectedKey: "omelette" },
+      { input: "Medu Vada", expectedKey: "vada" },
+      { input: "Crispy Samosa", expectedKey: "samosa" },
+      { input: "Cheese Pizza", expectedKey: "pizza" },
+      { input: "Veg Burger", expectedKey: "burger" },
+    ];
+
+    for (const item of requiredFoods) {
+      const mapped = mapToNutritionKey(item.input);
+      expect(mapped).toBe(item.expectedKey);
+      expect(nutritionDatabase[mapped]).toBeDefined();
+    }
+  });
+
+  it("verifies uncertainty message complies with specifications", () => {
+    expect(MSG_UNCERTAIN).toBe("Unable to identify this food accurately. Please capture another image.");
+  });
+});

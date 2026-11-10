@@ -54,38 +54,54 @@ export default async function handler(req: any, res: any) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-2.0-flash or gemini-1.5-flash
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json",
-      },
-    });
+    const candidateModels = [
+      "gemini-3.5-flash-lite",
+      "gemini-3.5-flash",
+      "gemini-flash-lite-latest",
+      "gemini-3.6-flash",
+    ];
 
-    const prompt = `You are a world-class food nutrition vision specialist for "NutriScan Pro".
-Analyze this image with extreme accuracy.
+    const prompt = `You are an expert food nutritionist and computer vision AI for NutriScan Pro.
+Carefully examine the image pixels and respond with JSON ONLY (no markdown code blocks, no text explanations).
 
-TASK:
-1. Determine if this image is a genuine, recognizable food dish, meal, drink, fruit, or vegetable.
-   - If the image contains people, selfies, faces, pets/animals, vehicles, electronics, furniture, clothing, documents, or non-food objects, set "isFood": false.
-   - If the image is food, set "isFood": true.
+STAGE 1: FOOD VS NON-FOOD DETECTION
+- Classify whether the image genuinely contains real, edible food, meals, cooked dishes, fruits, vegetables, drinks, or desserts.
+- If the image contains a photograph of food (even if shown on a mobile phone screen, book, magazine, or menu), recognize the FOOD in the photo!
+- If the image is STRICTLY NON-FOOD (human portrait, selfie, face, clothing, animal/pet, vehicle/car, building/architecture, office document, book page with no food, screenshot of an app/desktop with no food, electronics, blank/empty wall, or random non-food object):
+  Set "isFood": false
+  Set "isUncertain": false
+  Set "reason": "Sorry! No food detected. Please upload a valid food image."
+  Set "foodName": null, "matchedKey": null, "confidence": 0, "detectedFoods": [], "candidateFoods": []
 
-2. If isFood is true:
-   - Identify the EXACT dish. For example: "Roasted Chicken", "Idli", "Dosa", "Biryani", "Chicken Biryani", "Grilled Chicken", "Pizza", "Burger", "Fish Fry", "Sambar", "Curd Rice", "Chapati", "Pasta", "Noodles", "French Fries", "Salad", "Steak", "Soup", etc.
-   - NEVER confuse poultry/roasted chicken with idli, bread, or rice.
-   - Pick the best matched key from the following supported database keys:
-     ["apple", "banana", "orange", "mango", "grapes", "watermelon", "papaya", "pomegranate", "pineapple", "guava", "coconut", "carrot", "tomato", "potato", "onion", "broccoli", "spinach", "beetroot", "cabbage", "cucumber", "mushroom", "ladies finger", "bitter gourd", "drumstick", "rice", "chapati", "bread", "oats", "corn", "egg", "omelette", "chicken", "roasted chicken", "grilled chicken", "steak", "chicken 65", "fish", "fish fry", "fish curry", "mutton", "prawns", "soya chunks", "paneer", "tofu", "dal", "milk", "curd", "buttermilk", "ghee", "cheese", "dosa", "masala dosa", "idli", "vada", "pongal", "upma", "uttapam", "sambar", "rasam", "puttu", "appam", "kozhukattai", "lemon rice", "curd rice", "kothu parotta", "biryani", "chicken biryani", "parotta", "butter chicken", "paneer butter masala", "palak paneer", "chole", "naan", "rajma", "aloo gobi", "fried rice", "noodles", "pizza", "burger", "samosa", "pasta", "poori", "french fries", "sandwich", "cake", "ice cream", "chocolate", "salad", "soup", "tea", "coffee", "fruit juice", "coconut water", "lassi"]
-   - Provide an actual model confidence score between 0.00 and 1.00.
-   - Provide up to 3 relevant alternative candidate matches with their respective confidence scores.
+STAGE 2: IMAGE USABILITY & BLUR CHECK
+- If the image is so blurry, pitch black, overexposed white, corrupted, or out-of-focus that the food cannot be identified with genuine confidence:
+  Set "isFood": true
+  Set "isUncertain": true
+  Set "reason": "Unable to identify this food accurately. Please capture another image."
 
-OUTPUT FORMAT:
-Respond with ONLY valid JSON:
+STAGE 3: ACCURATE MULTI-FOOD IDENTIFICATION
+- If the image contains food, identify the dish or all distinct items on the plate/tray.
+- Read any visible titles, recipe names, or caption text displayed on screens or packaging (e.g. "Curd Rice", "Crispy Masala Dosa", "Chicken") to ensure exact identification.
+- South Indian & Indian cuisine specifics:
+  * White rice mixed with yogurt/curd, tempered with mustard seeds, curry leaves, and dried chillies / pomegranate is Curd Rice (Thayir Sadam) — NOT fish fry!
+  * Rolled or flat crispy golden crepe served with sambar and chutney is Dosa / Masala Dosa.
+  * Whole or cut roast/grilled chicken is Roasted Chicken / Chicken.
+  * Fish fry is a piece of fish with spicy red coating — NEVER creamy white rice!
+- Provide genuine confidence score (0.00 to 1.00).
+- If confidence < 0.45 or food is too ambiguous to determine:
+  Set "isUncertain": true
+  Set "reason": "Unable to identify this food accurately. Please capture another image."
+
+OUTPUT JSON SCHEMA:
 {
   "isFood": boolean,
+  "isUncertain": boolean,
   "foodName": string | null,
   "matchedKey": string | null,
   "confidence": number,
+  "detectedFoods": [
+    { "name": string, "foodKey": string, "confidence": number }
+  ],
   "candidateFoods": [
     { "name": string, "foodKey": string, "confidence": number }
   ],
@@ -99,8 +115,31 @@ Respond with ONLY valid JSON:
       },
     };
 
-    const result = await model.generateContent([prompt, imagePart]);
-    const responseText = result.response.text();
+    let responseText = "";
+    let lastError: any = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+          },
+        });
+        const result = await model.generateContent([prompt, imagePart]);
+        responseText = result.response.text();
+        if (responseText) break;
+      } catch (modelErr: any) {
+        lastError = modelErr;
+        console.warn(`[Gemini API] Model ${modelName} error:`, modelErr?.message);
+      }
+    }
+
+    if (!responseText) {
+      throw lastError || new Error("All Gemini vision models failed to respond.");
+    }
+
     const parsed = JSON.parse(responseText);
 
     return res.status(200).json({

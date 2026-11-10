@@ -238,13 +238,41 @@ export function translateHealthTip(foodName: string, englishTip?: string): strin
 }
 
 /**
- * Returns available voices from SpeechSynthesis with async fallback
+ * Returns available voices from SpeechSynthesis.
+ * Handles Chrome/Edge async voice loading by returning all voices synchronously.
  */
 export function getAvailableVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     return [];
   }
   return window.speechSynthesis.getVoices() || [];
+}
+
+/**
+ * Loads voices asynchronously and resolves when they are ready.
+ * Chrome loads voices asynchronously — this ensures we wait for them.
+ */
+export function waitForVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      return resolve([]);
+    }
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      return resolve(voices);
+    }
+    // Voices not yet loaded — wait for the event (Chrome/Edge)
+    const onChanged = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", onChanged);
+    // Fallback timeout in case voiceschanged never fires (Firefox, Safari)
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener("voiceschanged", onChanged);
+      resolve(window.speechSynthesis.getVoices());
+    }, 1500);
+  });
 }
 
 /**
@@ -314,13 +342,25 @@ export interface SpeakResult {
   utterance?: SpeechSynthesisUtterance;
   error?: "UNSUPPORTED_BROWSER" | "NO_TAMIL_VOICE" | "SPEAK_FAILED";
   message?: string;
+  /** True when Tamil was requested but English fallback was used instead */
+  usedEnglishFallback?: boolean;
 }
 
 /**
  * Executes text-to-speech strictly in the chosen language.
- * Cancels any active speech before starting.
+ * Waits for voices to load before selecting, then cancels any active speech.
+ * If Tamil is selected but unavailable, speaks the English version of the text instead.
+ *
+ * @param text   The speech text for the requested language.
+ * @param lang   Language code: "en" or "ta".
+ * @param enText Optional: English text to use as fallback when Tamil voice is missing.
+ *               If not supplied and Tamil is missing, falls back gracefully with text as-is.
  */
-export function speakText(text: string, lang: Lang): SpeakResult {
+export async function speakText(
+  text: string,
+  lang: Lang,
+  enText?: string
+): Promise<SpeakResult> {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) {
     return {
       success: false,
@@ -332,30 +372,63 @@ export function speakText(text: string, lang: Lang): SpeakResult {
   // 1. Stop any currently playing speech immediately
   window.speechSynthesis.cancel();
 
-  // 2. Refresh available voices from the browser
-  const voices = window.speechSynthesis.getVoices();
+  // 2. Wait for voices to be ready (fixes Chrome async voice loading race condition)
+  const voices = await waitForVoices();
   const { voice, supported } = findBestVoice(lang, voices);
 
-  // 3. Handle missing voice gracefully (especially Tamil on devices lacking Tamil TTS)
+  // 3. Tamil voice missing — fall back to English voice with English text
   if (lang === "ta" && !supported) {
-    return {
-      success: false,
-      error: "NO_TAMIL_VOICE",
-      message: "Tamil voice is not available on this device. Please install or enable a Tamil text-to-speech voice in device settings.",
-    };
+    const { voice: enVoice, supported: enSupported } = findBestVoice("en", voices);
+    if (!enSupported) {
+      return {
+        success: false,
+        error: "NO_TAMIL_VOICE",
+        message:
+          "Tamil voice is not available. Please install a Tamil TTS voice in your device settings.",
+      };
+    }
+
+    // IMPORTANT: Use English text (not Tamil Unicode) so English voice reads it correctly
+    const fallbackText =
+      enText || text.replace(/[\u0B80-\u0BFF]+/g, "").trim() || text;
+
+    try {
+      const utter = new SpeechSynthesisUtterance(fallbackText);
+      utter.lang = enVoice?.lang || "en-IN";
+      if (enVoice) utter.voice = enVoice;
+      utter.rate = 0.92;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+      return {
+        success: true,
+        utterance: utter,
+        usedEnglishFallback: true,
+        message:
+          "Tamil voice unavailable — playing in English. Install a Tamil TTS voice in device settings to hear Tamil audio.",
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: "NO_TAMIL_VOICE",
+        message:
+          "Tamil voice is not available. Please install a Tamil TTS voice in your device settings.",
+      };
+    }
   }
 
   try {
-    // 4. Create a fresh utterance strictly for the current language
+    // 4. Create a fresh utterance for the current language
     const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang === "ta" ? "ta-IN" : (voice?.lang || "en-IN");
+    utter.lang = lang === "ta" ? "ta-IN" : voice?.lang || "en-IN";
 
     if (voice) {
       utter.voice = voice;
     }
 
-    utter.rate = lang === "ta" ? 0.92 : 0.95;
+    // Tamil: slightly slower for clarity; English: natural pace
+    utter.rate = lang === "ta" ? 0.88 : 0.92;
     utter.pitch = 1.0;
+    utter.volume = 1.0;
 
     window.speechSynthesis.speak(utter);
     return { success: true, utterance: utter };
@@ -369,7 +442,54 @@ export function speakText(text: string, lang: Lang): SpeakResult {
 }
 
 /**
- * Builds the natural-sounding speech script in English or Tamil Unicode.
+ * Builds the natural-sounding English speech script.
+ */
+export function nutritionScriptEnglish(
+  name: string,
+  cal: number,
+  protein: number,
+  carbs: number,
+  fat: number,
+  healthTip: string
+): string {
+  const fluentName = name.replace(/\s*\+\s*/g, " and ");
+  return (
+    `You are viewing nutrition info for ${fluentName}. ` +
+    `It contains ${cal} calories per serving. ` +
+    `Protein: ${protein} grams. ` +
+    `Carbohydrates: ${carbs} grams. ` +
+    `Fat: ${fat} grams. ` +
+    `Health tip: ${healthTip}`
+  );
+}
+
+/**
+ * Builds the natural-sounding Tamil speech script.
+ */
+export function nutritionScriptTamil(
+  name: string,
+  cal: number,
+  protein: number,
+  carbs: number,
+  fat: number,
+  healthTip: string
+): string {
+  const taName = translateFoodName(name).replace(/\s*\+\s*/g, " மற்றும் ");
+  const taTip = translateHealthTip(name, healthTip);
+  return (
+    `${taName} உணவின் ஊட்டச்சத்து விவரம். ` +
+    `ஒரு பரிமாறலுக்கு ${cal} கலோரிகள். ` +
+    `புரதம் ${protein} கிராம். ` +
+    `கார்போஹைட்ரேட் ${carbs} கிராம். ` +
+    `கொழுப்பு ${fat} கிராம். ` +
+    `ஆரோக்கிய குறிப்பு: ${taTip}`
+  );
+}
+
+/**
+ * Builds the natural-sounding speech script in English or Tamil.
+ * Returns both scripts so callers can supply the English text as a
+ * fallback when Tamil TTS is unavailable.
  */
 export function nutritionScript(
   name: string,
@@ -381,9 +501,7 @@ export function nutritionScript(
   lang: Lang
 ): string {
   if (lang === "ta") {
-    const taName = translateFoodName(name);
-    const taTip = translateHealthTip(name, healthTip);
-    return `இந்த ${taName} உணவு ஒரு பரிமாறலுக்கு ${cal} கலோரிகள், ${protein} கிராம் புரதம், ${carbs} கிராம் கார்போஹைட்ரேட், மற்றும் ${fat} கிராம் கொழுப்பு கொண்டுள்ளது. ஆரோக்கிய குறிப்பு: ${taTip}`;
+    return nutritionScriptTamil(name, cal, protein, carbs, fat, healthTip);
   }
-  return `This ${name} contains ${cal} calories, ${protein} grams of protein, ${carbs} grams of carbohydrates, and ${fat} grams of fat. Health tip: ${healthTip}`;
+  return nutritionScriptEnglish(name, cal, protein, carbs, fat, healthTip);
 }

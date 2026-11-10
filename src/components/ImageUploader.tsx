@@ -3,8 +3,12 @@ import { Camera, Upload, X, Image, FlipHorizontal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { detectFoodWithGemini } from "@/lib/geminiFoodDetection";
-
-import type { AIDetectionCandidate } from "@/lib/aiFoodDetection";
+import {
+  validateImageQuality,
+  MSG_NO_FOOD,
+  MSG_UNCERTAIN,
+  type AIDetectionCandidate,
+} from "@/lib/aiFoodDetection";
 
 interface ImageUploaderProps {
   onImageCaptured: (
@@ -14,7 +18,8 @@ interface ImageUploaderProps {
     aiLabel?: string,
     aiLabelConfidence?: number,
     foodKey?: string,
-    candidateFoods?: AIDetectionCandidate[]
+    candidateFoods?: AIDetectionCandidate[],
+    detectedFoods?: AIDetectionCandidate[]
   ) => void;
   imagePreview: string | null;
   onClear: () => void;
@@ -121,6 +126,15 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // Validate real-time camera image quality
+    const quality = validateImageQuality(canvas);
+    if (!quality.isValid) {
+      const msg = quality.reason || MSG_UNCERTAIN;
+      setNotFoodMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     stopCamera();
     setNotFoodMsg(null);
@@ -129,9 +143,15 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
     try {
       const result = await detectFoodWithGemini(dataUrl, "camera-capture.jpg");
       if (!result.isFood) {
-        const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";
+        const reason = result.rejectionReason || MSG_NO_FOOD;
         setNotFoodMsg(reason);
         toast.error(reason);
+        return;
+      }
+      if (result.isUncertain) {
+        const reason = result.uncertainReason || MSG_UNCERTAIN;
+        setNotFoodMsg(reason);
+        toast.warning(reason);
         return;
       }
       onImageCaptured(
@@ -141,10 +161,12 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
         result.topLabel,
         result.confidence,
         result.foodKey,
-        result.candidateFoods
+        result.candidateFoods,
+        result.detectedFoods
       );
-    } catch {
-      toast.error("Couldn't analyze the photo. Please try again.");
+    } catch (err: any) {
+      console.error("[NutriScan Capture Error]:", err);
+      toast.error(err?.message || "Couldn't analyze the photo. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -154,6 +176,18 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
   const processFile = useCallback(async (file: File) => {
     setNotFoodMsg(null);
     const fileName = file.name;
+
+    // Validate file type (JPG, JPEG, PNG, WEBP)
+    const validExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+    const hasValidExt = validExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
+    const hasValidMime = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+
+    if (!hasValidExt && !hasValidMime) {
+      const msg = "Unsupported file format. Please upload a JPG, JPEG, PNG, or WEBP image.";
+      setNotFoodMsg(msg);
+      toast.error(msg);
+      return;
+    }
 
     const dataUrl: string = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -172,9 +206,16 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
       const result = await detectFoodWithGemini(dataUrl, fileName);
 
       if (!result.isFood) {
-        const reason = result.rejectionReason || "Please enter a valid food image. No food detected in this picture.";
+        const reason = result.rejectionReason || MSG_NO_FOOD;
         setNotFoodMsg(reason);
         toast.error(reason);
+        return;
+      }
+
+      if (result.isUncertain) {
+        const reason = result.uncertainReason || MSG_UNCERTAIN;
+        setNotFoodMsg(reason);
+        toast.warning(reason);
         return;
       }
 
@@ -185,11 +226,13 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
         result.topLabel,
         result.confidence,
         result.foodKey,
-        result.candidateFoods
+        result.candidateFoods,
+        result.detectedFoods
       );
       setNotFoodMsg(null);
-    } catch {
-      toast.error("Couldn't analyze the image. Please try again.");
+    } catch (err: any) {
+      console.error("[NutriScan Upload Error]:", err);
+      toast.error(err?.message || "Couldn't analyze the image. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }

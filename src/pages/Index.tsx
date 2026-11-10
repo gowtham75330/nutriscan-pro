@@ -49,6 +49,9 @@ export default function Index() {
   const [pendingAiLabelConfidence, setPendingAiLabelConfidence] = useState(0);
   const [pendingFoodKey, setPendingFoodKey] = useState<string | undefined>();
   const [candidateFoods, setCandidateFoods] = useState<AIDetectionCandidate[]>([]);
+  const [detectedFoods, setDetectedFoods] = useState<AIDetectionCandidate[]>([]);
+  const [pendingDetectedFoods, setPendingDetectedFoods] = useState<AIDetectionCandidate[]>([]);
+  const [selectedMealItem, setSelectedMealItem] = useState<string>("all");
   const [tracker, setTracker] = useState<TrackerEntry[]>(() => {
     try {
       const saved = localStorage.getItem("food-tracker");
@@ -75,7 +78,8 @@ export default function Index() {
     aiLabel?: string,
     aiLabelConfidence?: number,
     foodKey?: string,
-    candidates?: AIDetectionCandidate[]
+    candidates?: AIDetectionCandidate[],
+    detected?: AIDetectionCandidate[]
   ) => {
     // 1. Fully reset previous predictions and results
     setResult(null);
@@ -91,6 +95,9 @@ export default function Index() {
       setPendingAiLabelConfidence(0);
       setPendingFoodKey(undefined);
       setCandidateFoods([]);
+      setPendingDetectedFoods([]);
+      setDetectedFoods([]);
+      setSelectedMealItem("all");
       setIsScanning(false);
       return;
     }
@@ -101,55 +108,75 @@ export default function Index() {
     setPendingAiLabelConfidence(aiLabelConfidence ?? 0);
     setPendingFoodKey(foodKey);
     setCandidateFoods(candidates ?? []);
+    setPendingDetectedFoods(detected ?? []);
     setIsScanning(true);
   }, []);
 
   const handleScanComplete = useCallback(() => {
     setIsScanning(false);
 
-    // 1. Check fileName keywords
-    if (pendingFileName) {
-      const nameMatches = detectMultipleFoodsFromFileName(pendingFileName);
-      if (nameMatches.length > 0) {
-        if (nameMatches.length > 1) {
-          // Multiple foods detected in filename
-          const scaledItems = nameMatches.map((d) => {
-            const calc = calculateNutrition(d.food, portionSize, d.foodKey);
-            const serving = getServing(d.foodKey);
-            calc.servingLabel = serving.unit === "piece"
-              ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
-              : `${serving.grams}${serving.unit} serving`;
-            return calc;
-          });
-          const combined = sumNutrition(scaledItems);
-          combined.name = nameMatches.map((d) => d.food.name).join(" + ");
-          combined.emoji = "🍱";
-          combined.healthTip = `Combined meal of ${nameMatches.length} items. Balance portions for variety.`;
-          combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
-          setResult(combined);
-          setDetectedLabel(combined.name);
-          setConfidence(0.95);
-          setShowManualSelect(false);
-          toast({ title: `🍱 ${nameMatches.length} foods detected!`, description: combined.name });
-          return;
-        } else {
-          const d = nameMatches[0];
-          const calc = calculateNutrition(d.food, portionSize, d.foodKey);
-          const serving = getServing(d.foodKey);
-          calc.servingLabel = serving.unit === "piece"
-            ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
-            : `${serving.grams}${serving.unit} serving`;
-          setResult(calc);
-          setDetectedLabel(d.food.name);
-          setConfidence(0.95);
-          setShowManualSelect(false);
-          toast({ title: `${d.food.emoji} ${d.food.name} detected!`, description: "Real AI nutrition loaded" });
-          return;
-        }
-      }
+    // 1. Check if multiple foods were detected by AI or filename
+    const multiFromFileName = pendingFileName ? detectMultipleFoodsFromFileName(pendingFileName) : [];
+    const multiFromAi = pendingDetectedFoods && pendingDetectedFoods.length > 1 ? pendingDetectedFoods : [];
+
+    const multiFoods: AIDetectionCandidate[] = multiFromAi.length > 1
+      ? multiFromAi
+      : multiFromFileName.length > 1
+      ? multiFromFileName.map((m) => ({
+          foodKey: m.foodKey,
+          name: m.food.name,
+          emoji: m.food.emoji,
+          confidence: m.confidence,
+        }))
+      : [];
+
+    if (multiFoods.length > 1) {
+      setDetectedFoods(multiFoods);
+      setSelectedMealItem("all");
+      const scaledItems = multiFoods.map((d) => {
+        const itemFood = nutritionDatabase[d.foodKey];
+        const calc = calculateNutrition(itemFood, portionSize, d.foodKey);
+        const serving = getServing(d.foodKey);
+        calc.servingLabel = serving.unit === "piece"
+          ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+          : `${serving.grams}${serving.unit} serving`;
+        return calc;
+      });
+      const combined = sumNutrition(scaledItems);
+      combined.name = multiFoods.map((d) => d.name).join(" + ");
+      combined.emoji = multiFoods.length === 2 ? `${multiFoods[0].emoji} ${multiFoods[1].emoji}` : "🍱";
+      combined.healthTip = `Combined meal of ${multiFoods.length} items (${combined.name}). Balanced nutrient profile.`;
+      combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
+      setResult(combined);
+      setDetectedLabel(combined.name);
+      setConfidence(0.95);
+      setShowManualSelect(false);
+      toast({
+        title: `🍱 ${multiFoods.length} foods detected!`,
+        description: combined.name,
+      });
+      return;
     }
 
-    // 2. Direct AI classifier determination
+    // 2. Single food from filename
+    if (multiFromFileName.length === 1) {
+      const d = multiFromFileName[0];
+      const calc = calculateNutrition(d.food, portionSize, d.foodKey);
+      const serving = getServing(d.foodKey);
+      calc.servingLabel = serving.unit === "piece"
+        ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+        : `${serving.grams}${serving.unit} serving`;
+      setDetectedFoods([{ foodKey: d.foodKey, name: d.food.name, emoji: d.food.emoji, confidence: 0.95 }]);
+      setSelectedMealItem("all");
+      setResult(calc);
+      setDetectedLabel(d.food.name);
+      setConfidence(0.95);
+      setShowManualSelect(false);
+      toast({ title: `${d.food.emoji} ${d.food.name} detected!`, description: "Real AI nutrition loaded" });
+      return;
+    }
+
+    // 3. Direct AI classifier determination
     let detectedKey = pendingFoodKey;
     if (!detectedKey && candidateFoods.length > 0) {
       detectedKey = candidateFoods[0].foodKey;
@@ -158,8 +185,16 @@ export default function Index() {
       const labelMatches = detectMultipleFoodsFromFileName(pendingAiLabel);
       if (labelMatches.length > 0) detectedKey = labelMatches[0].foodKey;
     }
+
     if (!detectedKey || !nutritionDatabase[detectedKey]) {
-      detectedKey = "rice";
+      // Model is uncertain or food not matched — DO NOT force "rice" or any random food
+      setShowManualSelect(true);
+      toast({
+        title: "Unable to identify this food accurately",
+        description: "Please capture another image or select your food manually.",
+        variant: "destructive",
+      });
+      return;
     }
 
     const food = nutritionDatabase[detectedKey];
@@ -168,6 +203,12 @@ export default function Index() {
     calc.servingLabel = serving.unit === "piece"
       ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
       : `${serving.grams}${serving.unit} serving`;
+    setDetectedFoods(
+      pendingDetectedFoods.length > 0
+        ? pendingDetectedFoods
+        : [{ foodKey: detectedKey, name: food.name, emoji: food.emoji, confidence: pendingAiLabelConfidence || 0.90 }]
+    );
+    setSelectedMealItem("all");
     setResult(calc);
     setDetectedLabel(food.name);
     setConfidence(pendingAiLabelConfidence || 0.90);
@@ -176,7 +217,39 @@ export default function Index() {
       title: `${food.emoji} ${food.name} detected!`,
       description: `Confidence: ${((pendingAiLabelConfidence || 0.90) * 100).toFixed(0)}%`,
     });
-  }, [pendingFoodKey, pendingFileName, pendingAiLabel, pendingAiLabelConfidence, candidateFoods, portionSize, toast]);
+  }, [pendingFoodKey, pendingFileName, pendingAiLabel, pendingAiLabelConfidence, candidateFoods, pendingDetectedFoods, portionSize, toast]);
+
+  const handleSelectMealItem = useCallback((foodKey: string) => {
+    setSelectedMealItem(foodKey);
+    if (foodKey === "all") {
+      if (detectedFoods.length > 1) {
+        const scaledItems = detectedFoods.map((d) => {
+          const itemFood = nutritionDatabase[d.foodKey];
+          const calc = calculateNutrition(itemFood, portionSize, d.foodKey);
+          const serving = getServing(d.foodKey);
+          calc.servingLabel = serving.unit === "piece"
+            ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+            : `${serving.grams}${serving.unit} serving`;
+          return calc;
+        });
+        const combined = sumNutrition(scaledItems);
+        combined.name = detectedFoods.map((d) => d.name).join(" + ");
+        combined.emoji = detectedFoods.length === 2 ? `${detectedFoods[0].emoji} ${detectedFoods[1].emoji}` : "🍱";
+        combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
+        setResult(combined);
+        setDetectedLabel(combined.name);
+      }
+    } else if (nutritionDatabase[foodKey]) {
+      const food = nutritionDatabase[foodKey];
+      const calc = calculateNutrition(food, portionSize, foodKey);
+      const serving = getServing(foodKey);
+      calc.servingLabel = serving.unit === "piece"
+        ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+        : `${serving.grams}${serving.unit} serving`;
+      setResult(calc);
+      setDetectedLabel(food.name);
+    }
+  }, [detectedFoods, portionSize]);
 
   const handleSelectCandidate = useCallback((foodKey: string) => {
     if (!nutritionDatabase[foodKey]) return;
@@ -242,23 +315,40 @@ export default function Index() {
   const handlePortionChange = useCallback((size: PortionSize) => {
     setPortionSize(size);
     if (result) {
-      const r1 = portionMultipliers[portionSize].value;
-      const r2 = portionMultipliers[size].value;
-      const ratio = r2 / r1;
-      setResult({
-        ...result,
-        calories: Math.round(result.calories * ratio),
-        protein: +(result.protein * ratio).toFixed(1),
-        carbs: +(result.carbs * ratio).toFixed(1),
-        fat: +(result.fat * ratio).toFixed(1),
-        goodFat: +(result.goodFat * ratio).toFixed(1),
-        badFat: +(result.badFat * ratio).toFixed(1),
-        fiber: result.fiber !== undefined ? +(result.fiber * ratio).toFixed(1) : undefined,
-        sugar: result.sugar !== undefined ? +(result.sugar * ratio).toFixed(1) : undefined,
-        sodium: result.sodium !== undefined ? Math.round(result.sodium * ratio) : undefined,
-      });
+      if (selectedMealItem === "all" && detectedFoods.length > 1) {
+        const scaledItems = detectedFoods.map((d) => {
+          const itemFood = nutritionDatabase[d.foodKey];
+          const calc = calculateNutrition(itemFood, size, d.foodKey);
+          const serving = getServing(d.foodKey);
+          calc.servingLabel = serving.unit === "piece"
+            ? `1 ${serving.pieceLabel ?? "piece"} (~${serving.grams}g)`
+            : `${serving.grams}${serving.unit} serving`;
+          return calc;
+        });
+        const combined = sumNutrition(scaledItems);
+        combined.name = detectedFoods.map((d) => d.name).join(" + ");
+        combined.emoji = detectedFoods.length === 2 ? `${detectedFoods[0].emoji} ${detectedFoods[1].emoji}` : "🍱";
+        combined.servingLabel = scaledItems.map((s) => s.servingLabel).filter(Boolean).join(" + ");
+        setResult(combined);
+      } else {
+        const r1 = portionMultipliers[portionSize].value;
+        const r2 = portionMultipliers[size].value;
+        const ratio = r2 / r1;
+        setResult({
+          ...result,
+          calories: Math.round(result.calories * ratio),
+          protein: +(result.protein * ratio).toFixed(1),
+          carbs: +(result.carbs * ratio).toFixed(1),
+          fat: +(result.fat * ratio).toFixed(1),
+          goodFat: +(result.goodFat * ratio).toFixed(1),
+          badFat: +(result.badFat * ratio).toFixed(1),
+          fiber: result.fiber !== undefined ? +(result.fiber * ratio).toFixed(1) : undefined,
+          sugar: result.sugar !== undefined ? +(result.sugar * ratio).toFixed(1) : undefined,
+          sodium: result.sodium !== undefined ? Math.round(result.sodium * ratio) : undefined,
+        });
+      }
     }
-  }, [result, portionSize]);
+  }, [result, portionSize, selectedMealItem, detectedFoods]);
 
   const handleAddToTracker = useCallback(() => {
     if (!result) return;
@@ -281,6 +371,7 @@ export default function Index() {
     setIsScanning(false); setPendingFileName(undefined);
     setPendingAiLabel(undefined); setPendingAiLabelConfidence(0);
     setPendingFoodKey(undefined); setCandidateFoods([]);
+    setPendingDetectedFoods([]); setDetectedFoods([]); setSelectedMealItem("all");
   }, []);
 
   const handleTextAnalyze = useCallback((parsed: { scaled: NutritionInfo; display: string }) => {
@@ -422,6 +513,9 @@ export default function Index() {
                   imagePreview={imagePreview}
                   candidates={candidateFoods}
                   onSelectCandidate={handleSelectCandidate}
+                  detectedFoods={detectedFoods}
+                  selectedMealItem={selectedMealItem}
+                  onSelectMealItem={handleSelectMealItem}
                 />
               )}
             </motion.div>
@@ -486,6 +580,7 @@ export default function Index() {
 
 function ResultBlock({
   result, label, confidence, portionSize, onPortionChange, onAdd, onReset, hidePortion, imagePreview, candidates, onSelectCandidate,
+  detectedFoods, selectedMealItem, onSelectMealItem,
 }: {
   result: NutritionInfo; label: string; confidence: number;
   portionSize: PortionSize; onPortionChange: (s: PortionSize) => void;
@@ -493,7 +588,12 @@ function ResultBlock({
   imagePreview?: string | null;
   candidates?: AIDetectionCandidate[];
   onSelectCandidate?: (foodKey: string) => void;
+  detectedFoods?: AIDetectionCandidate[];
+  selectedMealItem?: string;
+  onSelectMealItem?: (foodKey: string) => void;
 }) {
+  const isMultiMeal = detectedFoods && detectedFoods.length > 1;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start max-w-6xl mx-auto w-full">
       {/* Left Column on Desktop / Top Stack on Mobile */}
@@ -514,7 +614,7 @@ function ResultBlock({
             animate={{ rotate: [0, 360] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} />
           <div className="relative z-10">
             <p className="text-xs sm:text-sm text-muted-foreground">
-              Detected Food: <span className="font-bold text-foreground text-sm sm:text-base">{result.emoji} {label}</span>
+              {isMultiMeal ? "Detected Foods:" : "Detected Food:"} <span className="font-bold text-foreground text-sm sm:text-base">{result.emoji} {label}</span>
             </p>
             {confidence > 0 && (
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -523,6 +623,51 @@ function ResultBlock({
             )}
           </div>
         </motion.div>
+
+        {/* Multi-Food Plate Contents Selector */}
+        {isMultiMeal && onSelectMealItem && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-3.5 sm:p-4 rounded-2xl space-y-2.5 border-2 border-primary/30 shadow-md bg-gradient-to-br from-primary/5 via-card to-card"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-bold text-foreground text-xs sm:text-sm flex items-center gap-1.5">
+                <span>🍱</span> Plate Contents ({detectedFoods.length} items)
+              </h3>
+              <span className="text-[10px] text-muted-foreground font-medium">Tap to view</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectMealItem("all")}
+                className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                  selectedMealItem === "all"
+                    ? "gradient-primary text-primary-foreground shadow-md ring-2 ring-primary/60 scale-[1.02]"
+                    : "bg-muted text-foreground hover:bg-muted/80"
+                }`}
+              >
+                <span>🍱</span>
+                <span>All (Combined Meal)</span>
+              </button>
+              {detectedFoods.map((f) => (
+                <button
+                  key={f.foodKey}
+                  type="button"
+                  onClick={() => onSelectMealItem(f.foodKey)}
+                  className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                    selectedMealItem === f.foodKey
+                      ? "gradient-warm text-secondary-foreground shadow-md ring-2 ring-secondary/60 scale-[1.02]"
+                      : "bg-muted text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span>{f.emoji}</span>
+                  <span>{f.name}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {!hidePortion && (
           <div className="glass-card p-3.5 sm:p-4 rounded-2xl space-y-2">

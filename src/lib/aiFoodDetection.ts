@@ -21,7 +21,8 @@
  */
 
 import type * as mobilenetTypes from "@tensorflow-models/mobilenet";
-import { nutritionDatabase, fileNameFoodMapping } from "@/data/nutritionData";
+import { nutritionDatabase } from "@/data/nutritionData";
+import { detectMultipleFoodsFromFileName } from "@/lib/foodDetection";
 
 export interface AIDetectionCandidate {
   foodKey: string;
@@ -32,7 +33,9 @@ export interface AIDetectionCandidate {
 
 export interface AIDetectionResult {
   isFood: boolean;
+  isUncertain?: boolean;
   rejectionReason?: string;
+  uncertainReason?: string;
   topLabel: string;
   topLabelConfidence: number;
   confidence: number;
@@ -40,6 +43,115 @@ export interface AIDetectionResult {
   foodName?: string;
   predictions: { className: string; probability: number }[];
   candidateFoods: AIDetectionCandidate[];
+  /** Multiple distinct foods detected on the plate (e.g. Idli + Dosa + Sambar) */
+  detectedFoods?: AIDetectionCandidate[];
+}
+
+export interface ImageQualityCheck {
+  isValid: boolean;
+  reason?: string;
+}
+
+export const MSG_NO_FOOD = "Sorry! No food detected. Please upload a valid food image.";
+export const MSG_UNCERTAIN = "Unable to identify this food accurately. Please capture another image.";
+
+export interface RawPixelData {
+  data: Uint8ClampedArray | number[];
+  width: number;
+  height: number;
+}
+
+export function evaluatePixelQuality(pixels: RawPixelData): ImageQualityCheck {
+  const { data, width: w, height: h } = pixels;
+  let totalLuminance = 0;
+  const gray: number[] = new Array(w * h);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    totalLuminance += lum;
+    gray[i / 4] = lum;
+  }
+
+  const avgLuminance = totalLuminance / (w * h || 1);
+
+  // 1. Pitch black / extremely dark image
+  if (avgLuminance < 8) {
+    return {
+      isValid: false,
+      reason: "Image is too dark or empty. Please ensure adequate lighting and try again.",
+    };
+  }
+
+  // 2. Pure white / washed out / overexposed image
+  if (avgLuminance > 250) {
+    return {
+      isValid: false,
+      reason: "Image is completely blank or overexposed. Please upload a clear food image.",
+    };
+  }
+
+  // 3. Laplacian edge variance blur detection
+  let sumLaplacian = 0;
+  let sumLaplacianSq = 0;
+  let count = 0;
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      const lap = 4 * gray[idx] - gray[idx + 1] - gray[idx - 1] - gray[idx + w] - gray[idx - w];
+      sumLaplacian += lap;
+      sumLaplacianSq += lap * lap;
+      count++;
+    }
+  }
+
+  const meanLap = sumLaplacian / (count || 1);
+  const lapVariance = (sumLaplacianSq / (count || 1)) - (meanLap * meanLap);
+
+  if (lapVariance < 9.0) {
+    return {
+      isValid: false,
+      reason: "Unable to identify this food accurately. Image appears blurry. Please capture another image.",
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Validates image quality (rejection of dark, empty, washed-out, or severely blurry images).
+ */
+export function validateImageQuality(source: HTMLCanvasElement | HTMLImageElement | RawPixelData): ImageQualityCheck {
+  try {
+    if ("data" in source && "width" in source && "height" in source) {
+      return evaluatePixelQuality(source);
+    }
+
+    let canvas: HTMLCanvasElement;
+    if (source instanceof HTMLCanvasElement) {
+      canvas = source;
+    } else {
+      canvas = document.createElement("canvas");
+      canvas.width = Math.min(source.naturalWidth || source.width || 128, 128);
+      canvas.height = Math.min(source.naturalHeight || source.height || 128, 128);
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    }
+
+    const w = Math.min(canvas.width || 128, 128);
+    const h = Math.min(canvas.height || 128, 128);
+    const sampleCanvas = document.createElement("canvas");
+    sampleCanvas.width = w;
+    sampleCanvas.height = h;
+    const sampleCtx = sampleCanvas.getContext("2d");
+    if (!sampleCtx) return { isValid: true };
+
+    sampleCtx.drawImage(canvas, 0, 0, w, h);
+    const imgData = sampleCtx.getImageData(0, 0, w, h);
+    return evaluatePixelQuality({ data: imgData.data, width: w, height: h });
+  } catch {
+    return { isValid: true };
+  }
 }
 
 // ── MobileNet / ImageNet food & produce classes ───────────────────────────────
@@ -72,7 +184,9 @@ const FOOD_CLASS_KEYWORDS = [
 
   // Meats & proteins
   "chicken", "egg", "fish", "meat", "beef", "pork", "steak", "sausage", "bacon",
-  "seafood", "shrimp", "poultry",
+  "seafood", "shrimp", "poultry", "rotisserie", "potpie", "pot pie", "rooster",
+  "hen", "cock", "turkey", "meatloaf", "meat loaf", "roast", "roasted", "fried",
+  "grill", "grilled",
 
   // Bakery & desserts
   "bread", "toast", "cookie", "biscuit", "pie", "cake", "cupcake", "donut", "doughnut",
@@ -133,23 +247,29 @@ const CLEARLY_NON_FOOD_KEYWORDS = [
   "menu", "hammer", "screwdriver", "pliers", "wrench", "axe", "shovel",
 ];
 
-let modelPromise: Promise<mobilenetTypes.MobileNet> | null = null;
+let modelPromise: Promise<mobilenetTypes.MobileNet | null> | null = null;
 
-/** Loads (and caches) the MobileNet model. Safe to call repeatedly. */
-function getModel(): Promise<mobilenetTypes.MobileNet> {
+/** Loads (and caches) the MobileNet model with fail-safe fallback. */
+function getModel(): Promise<mobilenetTypes.MobileNet | null> {
   if (!modelPromise) {
     modelPromise = (async () => {
-      const [tf, mobilenet] = await Promise.all([
-        import("@tensorflow/tfjs"),
-        import("@tensorflow-models/mobilenet"),
-      ]);
       try {
-        await tf.setBackend("webgl");
-      } catch {
-        await tf.setBackend("cpu");
+        const [tf, mobilenet] = await Promise.all([
+          import("@tensorflow/tfjs"),
+          import("@tensorflow-models/mobilenet"),
+        ]);
+        try {
+          await tf.setBackend("webgl");
+        } catch {
+          await tf.setBackend("cpu");
+        }
+        await tf.ready();
+        return await mobilenet.load({ version: 2, alpha: 1.0 });
+      } catch (err) {
+        console.warn("[NutriScan] MobileNet load failed, using local visual feature classifier:", err);
+        modelPromise = null;
+        return null;
       }
-      await tf.ready();
-      return mobilenet.load({ version: 2, alpha: 1.0 });
     })();
   }
   return modelPromise;
@@ -162,9 +282,22 @@ export function preloadFoodDetectionModel(): void {
 function loadImageElement(source: string | Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
-    img.crossOrigin = "anonymous";
+    // Only set crossOrigin on remote HTTP/HTTPS URLs (NOT data: or blob:)
+    if (typeof source === "string" && (source.startsWith("http://") || source.startsWith("https://"))) {
+      img.crossOrigin = "anonymous";
+    }
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image for analysis"));
+    img.onerror = (err) => {
+      console.warn("[NutriScan] Initial image load error, trying direct source:", err);
+      const fallbackImg = new window.Image();
+      fallbackImg.onload = () => resolve(fallbackImg);
+      fallbackImg.onerror = () => reject(new Error("Failed to load image for analysis"));
+      if (typeof source === "string") {
+        fallbackImg.src = source;
+      } else {
+        fallbackImg.src = URL.createObjectURL(source);
+      }
+    };
     if (typeof source === "string") {
       img.src = source;
     } else {
@@ -315,7 +448,7 @@ function evaluateFoodOrNot(
   if (visual.skinRatio > 0.16 && (top1IsNonFood || nonFoodScore > 0.10)) {
     return {
       isFood: false,
-      reason: "Please enter a valid food image. Human portrait or selfie detected.",
+      reason: MSG_NO_FOOD,
     };
   }
 
@@ -323,42 +456,41 @@ function evaluateFoodOrNot(
   if (visual.skinRatio > 0.26 && foodScore < 0.10) {
     return {
       isFood: false,
-      reason: "Please enter a valid food image. No food detected in this picture.",
+      reason: MSG_NO_FOOD,
     };
   }
 
   // 3. Clear non-food label dominates (e.g. car, laptop, dog, desk, etc.)
   if (top1IsNonFood && (top1Prob >= 0.12 || foodScore < 0.08)) {
-    const labelClean = top1Label.split(",")[0];
     return {
       isFood: false,
-      reason: `Please enter a valid food image ("${labelClean}" detected).`,
+      reason: MSG_NO_FOOD,
     };
   }
 
   // 4. Non-food probability heavily outweighs food signal
   if (nonFoodScore >= 0.25 && nonFoodScore > foodScore * 1.5) {
-    const labelClean = top1Label.split(",")[0];
     return {
       isFood: false,
-      reason: `Please enter a valid food image ("${labelClean}" detected).`,
+      reason: MSG_NO_FOOD,
     };
   }
 
-  // 5. Zero or negligible food score with no strong visual food color signature
-  // Note: whiteRatio is deliberately EXCLUDED so that white paper, walls, or products
-  // do NOT falsely pass as food.
-  const hasStrongVisualFood =
-    visual.redOrangeRatio > 0.10 ||
-    visual.greenLeafyRatio > 0.22 ||
-    visual.goldenBrownRatio > 0.15 ||
-    visual.yellowSpicedRiceRatio > 0.12 ||
-    visual.darkFriedCrustRatio > 0.12;
+  // 5. Check if any visual food colors/textures are present
+  // Includes Indian dishes (idli, dosa, sambar, curries, biryani) and international meals
+  const hasVisualFood =
+    visual.goldenBrownRatio > 0.05 ||
+    visual.greenLeafyRatio > 0.06 ||
+    visual.redOrangeRatio > 0.03 ||
+    visual.yellowSpicedRiceRatio > 0.04 ||
+    visual.darkFriedCrustRatio > 0.03 ||
+    (visual.whiteRatio > 0.06 && (visual.greenLeafyRatio > 0.04 || visual.goldenBrownRatio > 0.04 || visual.redOrangeRatio > 0.02));
 
-  if (foodScore < 0.05 && !hasStrongVisualFood) {
+  // Reject if neither neural food classes nor visual food signatures were detected
+  if (foodScore < 0.03 && !hasVisualFood) {
     return {
       isFood: false,
-      reason: "Please enter a valid food image. No food detected in this photo.",
+      reason: MSG_NO_FOOD,
     };
   }
 
@@ -373,27 +505,45 @@ function classifyDish(
   predictions: { className: string; probability: number }[],
   visual: VisualFeatures,
   fileName?: string
-): { foodKey: string; confidence: number; candidates: AIDetectionCandidate[] } {
+): {
+  foodKey: string;
+  confidence: number;
+  candidates: AIDetectionCandidate[];
+  detectedFoods?: AIDetectionCandidate[];
+  isUncertain?: boolean;
+} {
   const topLabels = predictions.map((p) => p.className.toLowerCase());
   const topProb = predictions[0]?.probability ?? 0;
   const topLabel = topLabels[0] ?? "";
 
-  // 1. Check if fileName contains a strong hint (e.g. "fishfry.jpg", "fish_fry", "biryani")
+  // 1. Check if fileName contains multiple or single food hints
   if (fileName) {
-    const cleanName = fileName.toLowerCase().replace(/[^a-z0-9]+/g, " ");
-    for (const [kw, foodKey] of Object.entries(fileNameFoodMapping)) {
-      if (cleanName.includes(kw)) {
-        const item = nutritionDatabase[foodKey];
-        if (item) {
-          return {
-            foodKey,
-            confidence: 0.96,
-            candidates: [
-              { foodKey, name: item.name, emoji: item.emoji, confidence: 0.96 },
-            ],
-          };
-        }
-      }
+    const multi = detectMultipleFoodsFromFileName(fileName);
+    if (multi.length > 1) {
+      const candidates = multi.map((m) => ({
+        foodKey: m.foodKey,
+        name: m.food.name,
+        emoji: m.food.emoji,
+        confidence: m.confidence,
+      }));
+      return {
+        foodKey: candidates[0].foodKey,
+        confidence: 0.96,
+        candidates,
+        detectedFoods: candidates,
+      };
+    } else if (multi.length === 1) {
+      const m = multi[0];
+      return {
+        foodKey: m.foodKey,
+        confidence: 0.96,
+        candidates: [
+          { foodKey: m.foodKey, name: m.food.name, emoji: m.food.emoji, confidence: 0.96 },
+        ],
+        detectedFoods: [
+          { foodKey: m.foodKey, name: m.food.name, emoji: m.food.emoji, confidence: 0.96 },
+        ],
+      };
     }
   }
 
@@ -438,12 +588,22 @@ function classifyDish(
       l.includes("poultry") ||
       l.includes("rooster") ||
       l.includes("hen") ||
-      l.includes("chicken")
+      l.includes("cock") ||
+      l.includes("chicken") ||
+      l.includes("turkey") ||
+      l.includes("quail") ||
+      l.includes("partridge") ||
+      l.includes("pheasant") ||
+      l.includes("drake") ||
+      l.includes("duck") ||
+      l.includes("goose") ||
+      l.includes("carving knife") ||
+      l.includes("cutting board")
     ) {
-      addScore("roasted chicken", prob * 4.5);
-      addScore("chicken", prob * 4.0);
-      addScore("grilled chicken", prob * 3.5);
-      addScore("chicken 65", prob * 2.5);
+      addScore("roasted chicken", prob * 6.0);
+      addScore("chicken", prob * 5.0);
+      addScore("grilled chicken", prob * 4.5);
+      addScore("chicken 65", prob * 3.5);
     }
 
     // Seafood / Fish classes in ImageNet
@@ -492,81 +652,120 @@ function classifyDish(
 
   // ── Combine with Visual Signatures ──────────────────────────────────────────
 
-  // Visual Signature 1: FISH FRY
-  // Characteristics: high red/orange spicy chilli coating, crispy dark fried crust,
-  // garnish coriander specks, served on plate or pan.
-  const hasFishFryVisuals =
-    visual.redOrangeRatio > 0.12 &&
-    (visual.darkFriedCrustRatio > 0.08 || visual.garnishGreenRatio > 0.003);
+  // Visual Signature 1: CURD RICE / WHITE RICE / IDLI
+  // Creamy white or steamed rice in a bowl/plate with seasoning/garnish.
+  // Curd rice typically has mustard seeds, curry leaves, red chilli / pomegranate seeds.
+  const isWhiteBowlDish =
+    visual.whiteRatio > 0.10 &&
+    visual.goldenBrownRatio < 0.16 &&
+    visual.darkFriedCrustRatio < 0.05;
 
-  const modelHintsFishOrPan = topLabels.some(
+  if (isWhiteBowlDish) {
+    const hasCurdRiceSeasoning =
+      visual.garnishGreenRatio > 0.0003 ||
+      (visual.redOrangeRatio > 0.003 && visual.redOrangeRatio < 0.14) ||
+      visual.darkFriedCrustRatio > 0.001;
+
+    if (hasCurdRiceSeasoning) {
+      addScore("curd rice", 5.6);
+      addScore("rice", 3.8);
+      addScore("idli", 2.5);
+    } else {
+      addScore("idli", 4.2);
+      addScore("rice", 3.6);
+      addScore("curd rice", 3.0);
+    }
+  }
+
+  // Visual Signature 2: DOSA / MASALA DOSA / FLATBREAD
+  // Characteristics: Golden-brown crispy roasted crepe/batter, accompanied by bowls of sambar/chutney.
+  const isDosaVisual =
+    visual.goldenBrownRatio > 0.04 &&
+    visual.whiteRatio < 0.22 &&
+    visual.greenLeafyRatio < 0.22;
+
+  if (isDosaVisual) {
+    const hasSambarOrChutney =
+      visual.redOrangeRatio > 0.01 ||
+      visual.yellowSpicedRiceRatio > 0.02 ||
+      (visual.whiteRatio > 0.015 && visual.whiteRatio < 0.12);
+
+    const dosaPoints = hasSambarOrChutney ? 5.6 : 4.4;
+    addScore("dosa", dosaPoints);
+    addScore("masala dosa", dosaPoints - 0.2);
+    addScore("chapati", 2.2);
+    addScore("parotta", 2.0);
+    addScore("vada", 1.8);
+  }
+
+  // Visual Signature 3: FISH FRY
+  // Characteristics: spicy red-orange chilli coating, crispy dark fried crust,
+  // STRICT RULE: Must NOT have high white ratio! Curd rice or Idli is NEVER fish fry!
+  const hasFishFryVisuals =
+    visual.whiteRatio < 0.08 &&
+    visual.redOrangeRatio > 0.12 &&
+    (visual.darkFriedCrustRatio > 0.03 || visual.garnishGreenRatio > 0.003);
+
+  const modelHintsFish = topLabels.some(
     (l) =>
-      l.includes("frying pan") ||
-      l.includes("wok") ||
-      l.includes("potpie") ||
-      l.includes("plate") ||
-      l.includes("rotisserie") ||
       l.includes("salmon") ||
       l.includes("tench") ||
       l.includes("gar") ||
       l.includes("coho") ||
       l.includes("barracouta") ||
-      l.includes("dishrag") ||
-      l.includes("tray") ||
-      l.includes("meat loaf") ||
-      l.includes("burrito")
+      l.includes("fish")
   );
 
   if (hasFishFryVisuals) {
-    addScore("fish fry", 3.8);
-    addScore("fish", 2.2);
-    addScore("chicken 65", 1.8);
-    if (modelHintsFishOrPan) {
-      addScore("fish fry", 2.5);
-    }
-  }
-
-  // Visual Signature 2: BIRYANI / SPICED RICE
-  // Saffron/yellow tinted rice grains, meat or veg chunks
-  if (visual.yellowSpicedRiceRatio > 0.12) {
-    addScore("biryani", 3.5);
-    addScore("fried rice", 2.0);
-    addScore("lemon rice", 1.8);
-  }
-
-  // Visual Signature 3: DOSA / FLATBREAD / VADA
-  if (visual.goldenBrownRatio > 0.18) {
-    addScore("dosa", 2.8);
-    addScore("masala dosa", 2.5);
-    addScore("chapati", 2.2);
-    addScore("parotta", 2.0);
-    addScore("vada", 1.8);
-    addScore("samosa", 1.8);
+    addScore("fish fry", modelHintsFish ? 5.5 : 3.5);
+    addScore("fish", 2.5);
+    addScore("chicken 65", 2.0);
   }
 
   // Visual Signature 4: ROASTED CHICKEN / POULTRY / MEAT
-  // Characteristics: golden-amber roasted skin, roasted brown crust, serving platter/tray
-  const hasRoastedMeatVisuals =
-    visual.goldenBrownRatio > 0.12 &&
-    (visual.darkFriedCrustRatio > 0.02 || visual.redOrangeRatio > 0.03);
-
-  const modelHintsPoultryOrPlatter = topLabels.some(
+  // Characteristics: golden-amber roasted skin + dark roasted/fried crust or high meat texture.
+  // Requires actual poultry keywords from MobileNet OR distinct meat crust with low white ratio.
+  // NEVER triggers on smooth golden dosa crepes with sambar/chutney!
+  const modelHintsPoultry = topLabels.some(
     (l) =>
       l.includes("rotisserie") ||
       l.includes("potpie") ||
       l.includes("meat loaf") ||
       l.includes("meatloaf") ||
-      l.includes("tray") ||
-      l.includes("platter") ||
-      l.includes("plate") ||
-      l.includes("dishrag") ||
-      l.includes("frying pan")
+      l.includes("hen") ||
+      l.includes("rooster") ||
+      l.includes("cock") ||
+      l.includes("chicken") ||
+      l.includes("turkey") ||
+      l.includes("quail") ||
+      l.includes("partridge") ||
+      l.includes("duck") ||
+      l.includes("goose") ||
+      l.includes("carving knife")
   );
 
-  if (hasRoastedMeatVisuals && modelHintsPoultryOrPlatter) {
-    addScore("roasted chicken", 5.2);
-    addScore("chicken", 4.2);
-    addScore("grilled chicken", 3.8);
+  const hasMeatCrustVisuals =
+    visual.goldenBrownRatio > 0.08 &&
+    visual.darkFriedCrustRatio > 0.025 &&
+    visual.whiteRatio < 0.08 &&
+    visual.greenLeafyRatio < 0.15;
+
+  if (modelHintsPoultry || hasMeatCrustVisuals) {
+    const boost = modelHintsPoultry ? 5.8 : 3.8;
+    addScore("roasted chicken", boost);
+    addScore("chicken", boost - 0.5);
+    addScore("grilled chicken", boost - 1.0);
+    if (visual.redOrangeRatio > 0.05) {
+      addScore("chicken 65", boost - 0.5);
+    }
+  }
+
+  // Visual Signature 5: BIRYANI / SPICED RICE
+  // Saffron/yellow tinted rice grains, meat or veg chunks
+  if (visual.yellowSpicedRiceRatio > 0.12 && !isDosaVisual && !isWhiteBowlDish) {
+    addScore("biryani", 3.5);
+    addScore("fried rice", 2.0);
+    addScore("lemon rice", 1.8);
   }
 
   // Visual Signature 5: IDLI / WHITE RICE
@@ -578,13 +777,43 @@ function classifyDish(
     addScore("curd rice", 1.8);
   }
 
+  // Visual Signature 5b: SOUTH INDIAN THALI on BANANA LEAF
+  // Banana leaf background = high green + white (idli) or golden-brown (dosa) together.
+  // This is the most common false-salad scenario — boost the correct dishes instead.
+  const isThaliOnBananaLeaf =
+    visual.greenLeafyRatio > 0.10 &&
+    (visual.whiteRatio > 0.12 || visual.goldenBrownRatio > 0.10);
+  if (isThaliOnBananaLeaf) {
+    if (visual.whiteRatio > 0.12) {
+      addScore("idli", 3.5);
+      addScore("rice", 2.0);
+    }
+    if (visual.goldenBrownRatio > 0.10) {
+      addScore("dosa", 3.8);
+      addScore("masala dosa", 3.0);
+      addScore("vada", 1.8);
+    }
+    if (visual.redOrangeRatio > 0.05) {
+      addScore("sambar", 2.0);
+      addScore("chicken 65", 1.5);
+    }
+  }
+
   // Visual Signature 5: SALAD
-  // Strictly requires DOMINANT fresh leafy green pixels (> 0.25)
+  // Strictly requires DOMINANT fresh leafy green pixels (> 0.28)
   // or explicit MobileNet produce match.
+  // IMPORTANT: Suppress salad scoring when banana-leaf background is likely:
+  //   - High white pixels (idli / curd) or golden-brown pixels (dosa) signal
+  //     that the green is a serving leaf, NOT salad greens.
   const saladModelHint = topLabels.some(
     (l) => l.includes("cabbage") || l.includes("cucumber") || l.includes("zucchini") || l.includes("broccoli")
   );
-  if (visual.greenLeafyRatio > 0.28 || (visual.greenLeafyRatio > 0.15 && saladModelHint)) {
+  const likelyBananaLeafBackground =
+    visual.whiteRatio > 0.12 || visual.goldenBrownRatio > 0.10;
+  if (
+    !likelyBananaLeafBackground &&
+    (visual.greenLeafyRatio > 0.28 || (visual.greenLeafyRatio > 0.15 && saladModelHint))
+  ) {
     addScore("salad", 3.5);
   }
 
@@ -603,21 +832,15 @@ function classifyDish(
       }
     }
 
-    // Infer from visual dominant color signature (NEVER default to salad!)
     if (sorted.length === 0) {
-      if (visual.goldenBrownRatio > 0.12) {
-        sorted.push(["dosa", 2.0], ["chapati", 1.8], ["vada", 1.5]);
-      } else if (visual.yellowSpicedRiceRatio > 0.08) {
-        sorted.push(["biryani", 2.2], ["fried rice", 1.8]);
-      } else if (visual.redOrangeRatio > 0.10) {
-        sorted.push(["chicken 65", 2.0], ["fish fry", 1.8]);
-      } else if (visual.whiteRatio > 0.18) {
-        sorted.push(["idli", 2.2], ["rice", 1.8]);
-      } else if (visual.greenLeafyRatio > 0.25) {
-        sorted.push(["salad", 2.0]);
-      } else {
-        sorted.push(["rice", 1.5], ["chapati", 1.2]);
-      }
+      // Inconclusive food image -> mark uncertain rather than inventing an incorrect food
+      return {
+        foodKey: "",
+        confidence: 0.35,
+        candidates: [],
+        detectedFoods: [],
+        isUncertain: true,
+      };
     }
   }
 
@@ -632,10 +855,96 @@ function classifyDish(
     };
   });
 
-  const bestKey = candidates[0]?.foodKey ?? "rice";
-  const bestConfidence = candidates[0]?.confidence ?? 0.70;
+  // ── Multi-Food Co-Occurrence Detection ──────────────────────────────────────
+  // Identifies multiple distinct dishes physically present together in the image
+  const detectedCombo: AIDetectionCandidate[] = [];
 
-  return { foodKey: bestKey, confidence: bestConfidence, candidates };
+  const isMeatOrPoultry =
+    candidates.length > 0 &&
+    [
+      "roasted chicken",
+      "chicken",
+      "grilled chicken",
+      "chicken 65",
+      "chicken biryani",
+      "fish fry",
+      "fish",
+      "fish curry",
+      "prawns",
+      "steak",
+      "burger",
+      "pizza",
+    ].includes(candidates[0].foodKey);
+
+  // South Indian plate / banana leaf combo:
+  // Banana leaf background + white steamed cakes (idli) + golden crispy crepe (dosa)
+  // NEVER triggers if top candidate is meat or poultry!
+  const isBananaLeafOrPlate =
+    !isMeatOrPoultry &&
+    (visual.greenLeafyRatio > 0.08 && (visual.whiteRatio > 0.06 || visual.goldenBrownRatio > 0.06));
+
+  if (isBananaLeafOrPlate) {
+    if (visual.whiteRatio > 0.07 && visual.goldenBrownRatio > 0.08) {
+      const idli = nutritionDatabase["idli"];
+      const dosa = nutritionDatabase["dosa"];
+      if (idli && dosa) {
+        detectedCombo.push({ foodKey: "idli", name: idli.name, emoji: idli.emoji, confidence: 0.94 });
+        detectedCombo.push({ foodKey: "dosa", name: dosa.name, emoji: dosa.emoji, confidence: 0.92 });
+      }
+      if (visual.redOrangeRatio > 0.03) {
+        const sambar = nutritionDatabase["sambar"];
+        if (sambar) {
+          detectedCombo.push({ foodKey: "sambar", name: sambar.name, emoji: sambar.emoji, confidence: 0.88 });
+        }
+      }
+    }
+  }
+
+  // Fast food combo: Burger + French fries
+  const hasBurger = topLabels.some((l) => l.includes("burger") || l.includes("cheeseburger") || l.includes("hamburger"));
+  const hasFries = topLabels.some((l) => l.includes("chip") || l.includes("french fry") || l.includes("fries"));
+  if (hasBurger && (hasFries || visual.goldenBrownRatio > 0.16) && detectedCombo.length === 0) {
+    const burger = nutritionDatabase["burger"];
+    const fries = nutritionDatabase["french fries"];
+    if (burger && fries) {
+      detectedCombo.push({ foodKey: "burger", name: burger.name, emoji: burger.emoji, confidence: 0.94 });
+      detectedCombo.push({ foodKey: "french fries", name: fries.name, emoji: fries.emoji, confidence: 0.90 });
+    }
+  }
+
+  // Rice + Dal / Curry combo:
+  // STRICT requirement: Must have explicit rice and dal/soup model predictions
+  // MUST NEVER trigger on meat, poultry, fast food or generic colors!
+  const hasRiceEvidence = topLabels.some((l) => l.includes("rice") || l.includes("biryani"));
+  const hasDalEvidence = topLabels.some((l) => l.includes("soup") || l.includes("consomme") || l.includes("dal"));
+  if (!isMeatOrPoultry && hasRiceEvidence && hasDalEvidence && detectedCombo.length === 0) {
+    const rice = nutritionDatabase["rice"];
+    const dal = nutritionDatabase["dal"];
+    if (rice && dal) {
+      detectedCombo.push({ foodKey: "rice", name: rice.name, emoji: rice.emoji, confidence: 0.92 });
+      detectedCombo.push({ foodKey: "dal", name: dal.name, emoji: dal.emoji, confidence: 0.88 });
+    }
+  }
+
+  // Determine primary foodKey:
+  // candidates[0] is the winner UNLESS a combo was detected AND matches candidates[0]
+  let bestKey = candidates[0]?.foodKey ?? "roasted chicken";
+  if (detectedCombo.length > 1) {
+    const comboMatchesCandidate = detectedCombo.some((c) => c.foodKey === candidates[0]?.foodKey);
+    if (comboMatchesCandidate) {
+      bestKey = detectedCombo[0].foodKey;
+    } else if (["rice", "meal", "thali"].includes(candidates[0]?.foodKey ?? "")) {
+      bestKey = detectedCombo[0].foodKey;
+    }
+  }
+  const bestConfidence = candidates[0]?.confidence ?? 0.85;
+
+  return {
+    foodKey: bestKey,
+    confidence: bestConfidence,
+    candidates,
+    detectedFoods: detectedCombo.length > 1 ? detectedCombo : (candidates.length > 0 ? [candidates[0]] : []),
+  };
 }
 
 /**
@@ -648,19 +957,58 @@ export async function analyzeImageForFood(
   source: string | Blob,
   fileName?: string
 ): Promise<AIDetectionResult> {
-  const model = await getModel();
-  const img = await loadImageElement(source);
+  let img: HTMLImageElement;
+  try {
+    img = await loadImageElement(source);
+  } catch (imgErr) {
+    console.error("[NutriScan] Image load error:", imgErr);
+    return {
+      isFood: false,
+      rejectionReason: "Could not read this image file. Please choose another photo or format (JPG/PNG/WebP).",
+      topLabel: "Image Error",
+      topLabelConfidence: 0,
+      confidence: 0,
+      predictions: [],
+      candidateFoods: [],
+    };
+  }
 
   try {
-    const rawPredictions = await model.classify(img, 10);
-    const visual = extractVisualFeatures(img);
+    // Stage 0: Image Quality Validation (dark, blank, or blurry check)
+    const quality = validateImageQuality(img);
+    if (!quality.isValid) {
+      return {
+        isFood: true,
+        isUncertain: true,
+        uncertainReason: quality.reason || MSG_UNCERTAIN,
+        topLabel: "Unable to identify this food accurately",
+        topLabelConfidence: 0,
+        confidence: 0,
+        predictions: [],
+        candidateFoods: [],
+      };
+    }
 
+    let rawPredictions: { className: string; probability: number }[] = [];
+    try {
+      const model = await Promise.race([
+        getModel(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
+      ]);
+      if (model) {
+        rawPredictions = await model.classify(img, 10);
+      }
+    } catch (modelErr) {
+      console.warn("[NutriScan] Model inference bypassed, running visual engine:", modelErr);
+    }
+
+    const visual = extractVisualFeatures(img);
     const validation = evaluateFoodOrNot(rawPredictions, visual);
 
     if (!validation.isFood) {
       return {
         isFood: false,
-        rejectionReason: validation.reason,
+        rejectionReason: validation.reason || MSG_NO_FOOD,
         topLabel: rawPredictions[0]?.className ?? "unknown",
         topLabelConfidence: rawPredictions[0]?.probability ?? 0,
         confidence: 0,
@@ -670,20 +1018,56 @@ export async function analyzeImageForFood(
     }
 
     const classification = classifyDish(rawPredictions, visual, fileName);
+
+    if (
+      classification.isUncertain ||
+      !classification.foodKey ||
+      !nutritionDatabase[classification.foodKey] ||
+      classification.confidence < 0.45
+    ) {
+      return {
+        isFood: true,
+        isUncertain: true,
+        uncertainReason: MSG_UNCERTAIN,
+        topLabel: "Unable to identify this food accurately",
+        topLabelConfidence: classification.confidence || 0,
+        confidence: classification.confidence || 0,
+        predictions: rawPredictions,
+        candidateFoods: classification.candidates,
+      };
+    }
+
     const matchedFood = nutritionDatabase[classification.foodKey];
+    const isMultiFood = classification.detectedFoods && classification.detectedFoods.length > 1;
+    const topLabel = isMultiFood
+      ? classification.detectedFoods!.map((f) => f.name).join(" + ")
+      : (matchedFood?.name ?? rawPredictions[0]?.className ?? "Food");
 
     return {
       isFood: true,
-      topLabel: matchedFood?.name ?? rawPredictions[0]?.className ?? "Food",
-      topLabelConfidence: rawPredictions[0]?.probability ?? 0,
+      topLabel,
+      topLabelConfidence: classification.confidence,
       confidence: classification.confidence,
       foodKey: classification.foodKey,
-      foodName: matchedFood?.name,
+      foodName: topLabel,
+      detectedFoods: classification.detectedFoods,
       predictions: rawPredictions,
       candidateFoods: classification.candidates,
     };
+  } catch (err: any) {
+    console.error("[NutriScan] Image analysis fallback:", err);
+    return {
+      isFood: true,
+      isUncertain: true,
+      uncertainReason: MSG_UNCERTAIN,
+      topLabel: "Unable to identify this food accurately",
+      topLabelConfidence: 0,
+      confidence: 0,
+      predictions: [],
+      candidateFoods: [],
+    };
   } finally {
-    if (img.src.startsWith("blob:")) {
+    if (img && img.src && img.src.startsWith("blob:")) {
       URL.revokeObjectURL(img.src);
     }
   }

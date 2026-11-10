@@ -8,6 +8,7 @@ import { healthScore } from "@/lib/nutritionUtils";
 import { exportNutritionPDF } from "@/lib/pdfExport";
 import {
   nutritionScript,
+  nutritionScriptEnglish,
   speakText,
   translateFoodName,
   translateHealthLabel,
@@ -73,7 +74,7 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
     setLang((prev) => (prev === "en" ? "ta" : "en"));
   }, []);
 
-  const toggleVoice = useCallback(() => {
+  const toggleVoice = useCallback(async () => {
     // If already speaking, clicking speaker immediately stops speech
     if (speaking) {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -83,7 +84,7 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
       return;
     }
 
-    // Prepare speech text strictly for currently selected language
+    // Build speech script for the selected language
     const script = nutritionScript(
       nutrition.name,
       nutrition.calories,
@@ -94,7 +95,17 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
       lang
     );
 
-    const res = speakText(script, lang);
+    // Also build English script — used as fallback when Tamil TTS voice is missing
+    const enScript = nutritionScriptEnglish(
+      nutrition.name,
+      nutrition.calories,
+      nutrition.protein,
+      nutrition.carbs,
+      nutrition.fat,
+      nutrition.healthTip
+    );
+
+    const res = await speakText(script, lang, enScript);
 
     if (!res.success) {
       setSpeaking(false);
@@ -108,6 +119,11 @@ export default function NutritionDashboard({ nutrition, onAddToTracker }: Props)
         toast.error(res.message || "Speech synthesis is not supported on this browser.");
       }
       return;
+    }
+
+    // Tamil requested but English voice used as fallback — show a gentle info notice
+    if (res.usedEnglishFallback && res.message) {
+      toast.info(res.message, { duration: 4000 });
     }
 
     if (res.utterance) {
