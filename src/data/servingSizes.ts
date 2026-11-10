@@ -37,6 +37,7 @@ export const servingSizes: Record<string, ServingMeta> = {
   omelette: { grams: 80, unit: "piece", pieceLabel: "omelette" },
   "fish fry": { grams: 100, unit: "piece", pieceLabel: "piece" },
   "masala dosa": { grams: 120, unit: "piece", pieceLabel: "dosa" },
+  chutney: { grams: 50, unit: "g" },
 
   // ml
   milk: { grams: 240, unit: "ml" },

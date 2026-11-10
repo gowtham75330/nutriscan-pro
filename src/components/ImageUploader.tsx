@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { detectFoodWithGemini } from "@/lib/geminiFoodDetection";
 import {
-  validateImageQuality,
   MSG_NO_FOOD,
   MSG_UNCERTAIN,
   type AIDetectionCandidate,
@@ -125,15 +124,6 @@ export default function ImageUploader({ onImageCaptured, imagePreview, onClear }
       ctx.scale(-1, 1);
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Validate real-time camera image quality
-    const quality = validateImageQuality(canvas);
-    if (!quality.isValid) {
-      const msg = quality.reason || MSG_UNCERTAIN;
-      setNotFoodMsg(msg);
-      toast.error(msg);
-      return;
-    }
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
     stopCamera();

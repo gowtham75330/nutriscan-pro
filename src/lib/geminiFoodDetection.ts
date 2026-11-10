@@ -61,6 +61,26 @@ export function setUserGeminiApiKey(key: string): void {
   } catch {}
 }
 
+export function getEffectiveGeminiKey(): string {
+  const userKey = getUserGeminiApiKey();
+  if (userKey && userKey.trim().length > 15) return userKey.trim();
+
+  const envKey = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_GEMINI_API_KEY) || "";
+  if (typeof envKey === "string" && envKey.trim().length > 15) return envKey.trim();
+
+  return "";
+}
+
+// Automatically sync environment key to local storage on client load
+if (typeof window !== "undefined") {
+  try {
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (envKey && typeof envKey === "string" && envKey.trim().length > 15 && !getUserGeminiApiKey()) {
+      setUserGeminiApiKey(envKey);
+    }
+  } catch {}
+}
+
 /**
  * Normalizes any detected food name to a valid database key in NutriScan Pro.
  * NEVER forces an incorrect food name or defaults to "rice".
@@ -92,6 +112,7 @@ export function mapToNutritionKey(rawName: string, rawKey?: string | null): stri
   if (clean.includes("lemon rice") || clean.includes("elumichai sadam") || clean.includes("chitranna")) return "lemon rice";
   if (clean.includes("fried rice")) return "fried rice";
   if (clean.includes("sambar") || clean.includes("sambhar")) return "sambar";
+  if (clean.includes("chutney") || clean.includes("chutni")) return "chutney";
   if (clean.includes("rasam")) return "rasam";
   if (clean.includes("puttu")) return "puttu";
   if (clean.includes("appam") || clean.includes("hoppers")) return "appam";
@@ -263,6 +284,29 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 7
   }
 }
 
+function parseGeminiJson(rawText: string): GeminiDetectionResponse | null {
+  if (!rawText) return null;
+  let clean = rawText.trim();
+  if (clean.startsWith("```json")) {
+    clean = clean.replace(/^```json\s*/i, "").replace(/\s*```$/, "");
+  } else if (clean.startsWith("```")) {
+    clean = clean.replace(/^```\s*/, "").replace(/\s*```$/, "");
+  }
+  try {
+    return JSON.parse(clean);
+  } catch {}
+
+  const start = clean.indexOf("{");
+  const end = clean.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      return JSON.parse(clean.substring(start, end + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
 /**
  * Calls direct Google Gemini Vision REST endpoint when client has a key.
  * Evaluates food vs non-food, quality/blur, and dish classification.
@@ -292,7 +336,8 @@ STAGE 1: FOOD VS NON-FOOD DETECTION
   Set "foodName": null, "matchedKey": null, "confidence": 0, "detectedFoods": [], "candidateFoods": []
 
 STAGE 2: IMAGE USABILITY & BLUR CHECK
-- If the image is so blurry, pitch black, overexposed white, corrupted, or out-of-focus that the food cannot be identified with genuine confidence:
+- Only reject if the image is 100% pitch black or completely blank with zero visible content. Do NOT reject steamed white foods like Idli!
+- If image is completely unusable:
   Set "isFood": true
   Set "isUncertain": true
   Set "reason": "Unable to identify this food accurately. Please capture another image."
@@ -301,10 +346,17 @@ STAGE 3: ACCURATE MULTI-FOOD IDENTIFICATION
 - If the image contains food, identify the dish or all distinct items on the plate/tray.
 - Read any visible titles, recipe names, or caption text displayed on screens or packaging (e.g. "Curd Rice", "Crispy Masala Dosa", "Chicken") to ensure exact identification.
 - South Indian & Indian cuisine specifics:
+  * Steamed white circular/round cakes are Idli (இட்லி) — usually served with sambar or chutney. NEVER reject Idli!
   * White rice mixed with yogurt/curd, tempered with mustard seeds, curry leaves, and dried chillies / pomegranate is Curd Rice (Thayir Sadam) — NOT fish fry!
   * Rolled or flat crispy golden crepe served with sambar and chutney is Dosa / Masala Dosa.
   * Whole or cut roast/grilled chicken is Roasted Chicken / Chicken.
-  * Fish fry is a piece of fish with spicy red coating — NEVER creamy white rice!
+  * Fish fry is a piece of fish with spicy red coating — NEVER creamy white rice or idli!
+  * Pongal is soft savory rice and yellow moong dal cooked with cumin, pepper, and cashews.
+  * Vada / Medu Vada is a golden doughnut-shaped fried lentil fritter.
+  * Poori is puffy deep-fried whole wheat bread.
+  * Chapati / Roti is flat unleavened wheat bread.
+  * Parotta is layered flaky South Indian flatbread.
+  * Chicken Biryani is aromatic spiced basmati rice with chicken pieces.
 - Provide genuine confidence score (0.00 to 1.00).
 - If confidence < 0.45 or food is too ambiguous to determine:
   Set "isUncertain": true
@@ -361,7 +413,11 @@ OUTPUT JSON SCHEMA:
       const json = await response.json();
       const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) continue;
-      return JSON.parse(text) as GeminiDetectionResponse;
+      const parsed = parseGeminiJson(text);
+      if (parsed) {
+        console.log(`[NutriScan] Gemini model ${model} successfully identified:`, parsed.foodName, parsed.confidence);
+        return parsed;
+      }
     } catch (modelErr) {
       console.warn(`[NutriScan] Gemini model ${model} request error or timeout:`, modelErr);
     }
@@ -407,12 +463,9 @@ export async function detectFoodWithGemini(
     console.warn("[NutriScan] Backend analyze-food unreachable or offline, trying fallbacks...");
   }
 
-  // ── Step 2: Try Direct Gemini Call if client has key ─────────────────────
+  // ── Step 2: Try Direct Gemini Call with effective key ────────────────────
   if (!geminiResult) {
-    const clientKey =
-      getUserGeminiApiKey() ||
-      (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_GEMINI_API_KEY);
-
+    const clientKey = getEffectiveGeminiKey();
     if (clientKey) {
       try {
         geminiResult = await callGeminiDirectRest(base64Data, mimeType, clientKey);
